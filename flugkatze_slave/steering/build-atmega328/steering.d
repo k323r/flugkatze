@@ -1,4 +1,4 @@
-build-atmega328/flight_controller.o: flight_controller.ino \
+build-atmega328/steering.o: steering.ino \
  /usr/share/arduino/hardware/arduino/cores/arduino/Arduino.h \
  /usr/share/arduino/hardware/arduino/cores/arduino/binary.h \
  /usr/share/arduino/hardware/arduino/cores/arduino/WCharacter.h \

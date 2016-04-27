@@ -8,6 +8,27 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //Declaring Variables
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+float pid_p_gain_roll = 1.0;               //Gain setting for the roll P-controller (1.3)
+float pid_i_gain_roll = 0.0;              //Gain setting for the roll I-controller (0.3)
+float pid_d_gain_roll = 0.0;                //Gain setting for the roll D-controller (15)
+int pid_max_roll = 100;                    //Maximum output of the PID-controller (+/-)
+
+float pid_p_gain_pitch = pid_p_gain_roll;  //Gain setting for the pitch P-controller.
+float pid_i_gain_pitch = pid_i_gain_roll;  //Gain setting for the pitch I-controller.
+float pid_d_gain_pitch = pid_d_gain_roll;  //Gain setting for the pitch D-controller.
+int pid_max_pitch = pid_max_roll;          //Maximum output of the PID-controller (+/-)
+
+float pid_p_gain_yaw = 1.0;                //Gain setting for the pitch P-controller. //4.0
+float pid_i_gain_yaw = 0.0;               //Gain setting for the pitch I-controller. //0.02
+float pid_d_gain_yaw = 0.0;                //Gain setting for the pitch D-controller.
+int pid_max_yaw = 100;                     //Maximum output of the PID-controller (+/-)
+
+float pid_error_temp;
+float pid_i_mem_roll, pid_roll_setpoint, gyro_roll_input, pid_output_roll, pid_last_roll_d_error;
+float pid_i_mem_pitch, pid_pitch_setpoint, gyro_pitch_input, pid_output_pitch, pid_last_pitch_d_error;
+float pid_i_mem_yaw, pid_yaw_setpoint, gyro_yaw_input, pid_output_yaw, pid_last_yaw_d_error;
+
 byte last_channel_1, last_channel_2, last_channel_3, last_channel_4;
 int receiver_input_channel_1, receiver_input_channel_2, receiver_input_channel_3, receiver_input_channel_4;
 int counter_channel_1, counter_channel_2, counter_channel_3, counter_channel_4, loop_counter;
@@ -25,7 +46,45 @@ double gyro_roll_threshold, gyro_pitch_threshold, gyro_yaw_threshold;
 byte highByte, lowByte;
 byte print_counter = 0;
 
-float gyro_roll_input, gyro_pitch_input, gyro_yaw_input;
+// float gyro_roll_input, gyro_pitch_input, gyro_yaw_input;
+
+void calculate_pid(){
+  //Roll calculations
+  pid_error_temp = gyro_roll_input - pid_roll_setpoint;
+  pid_i_mem_roll += pid_i_gain_roll * pid_error_temp;
+  if(pid_i_mem_roll > pid_max_roll) pid_i_mem_roll = pid_max_roll;
+  else if(pid_i_mem_roll < pid_max_roll * -1) pid_i_mem_roll = pid_max_roll * -1;
+
+  pid_output_roll = pid_p_gain_roll * pid_error_temp + pid_i_mem_roll + pid_d_gain_roll * (pid_error_temp - pid_last_roll_d_error);
+  if(pid_output_roll > pid_max_roll) pid_output_roll = pid_max_roll;
+  else if(pid_output_roll < pid_max_roll * -1) pid_output_roll = pid_max_roll * -1;
+
+  pid_last_roll_d_error = pid_error_temp;
+
+  //Pitch calculations
+  pid_error_temp = gyro_pitch_input - pid_pitch_setpoint;
+  pid_i_mem_pitch += pid_i_gain_pitch * pid_error_temp;
+  if(pid_i_mem_pitch > pid_max_pitch) pid_i_mem_pitch = pid_max_pitch;
+  else if(pid_i_mem_pitch < pid_max_pitch * -1) pid_i_mem_pitch = pid_max_pitch * -1;
+
+  pid_output_pitch = pid_p_gain_pitch * pid_error_temp + pid_i_mem_pitch + pid_d_gain_pitch * (pid_error_temp - pid_last_pitch_d_error);
+  if(pid_output_pitch > pid_max_pitch) pid_output_pitch = pid_max_pitch;
+  else if(pid_output_pitch < pid_max_pitch * -1) pid_output_pitch = pid_max_pitch * -1;
+
+  pid_last_pitch_d_error = pid_error_temp;
+
+  //Yaw calculations
+  pid_error_temp = gyro_yaw_input - pid_yaw_setpoint;
+  pid_i_mem_yaw += pid_i_gain_yaw * pid_error_temp;
+  if(pid_i_mem_yaw > pid_max_yaw) pid_i_mem_yaw = pid_max_yaw;
+  else if(pid_i_mem_yaw < pid_max_yaw * -1) pid_i_mem_yaw = pid_max_yaw * -1;
+
+  pid_output_yaw = pid_p_gain_yaw * pid_error_temp + pid_i_mem_yaw + pid_d_gain_yaw * (pid_error_temp - pid_last_yaw_d_error);
+  if(pid_output_yaw > pid_max_yaw) pid_output_yaw = pid_max_yaw;
+  else if(pid_output_yaw < pid_max_yaw * -1) pid_output_yaw = pid_max_yaw * -1;
+
+  pid_last_yaw_d_error = pid_error_temp;
+}
 
 void gyro_signals(){
   Wire.beginTransmission(105);                                 //Start communication with the gyro (adress 1101001)
@@ -90,7 +149,16 @@ void print_signals(){
   Serial.print(" ");
   Serial.print(receiver_input_channel_3);
   Serial.print("  ");
-  Serial.println(receiver_input_channel_4);
+  Serial.print(receiver_input_channel_4);
+  Serial.print(" ");
+  Serial.print(esc_1);
+  Serial.print(" ");
+  Serial.print(esc_2);
+  Serial.print(" ");
+  Serial.print(esc_3);
+  Serial.print("  ");
+  Serial.println(esc_4);
+
 //  Serial.print("\n");
 }
 
@@ -167,6 +235,7 @@ void setup(){
 
   Serial.print("waiting on user input\n");
 
+/*
   //Wait until the receiver is active and the throtle is set to the lower position.
   while(receiver_input_channel_3 < 990 || receiver_input_channel_3 > 1020 || receiver_input_channel_4 < 1400){
     start ++;                                                  //While waiting increment start whith every loop.
@@ -180,6 +249,7 @@ void setup(){
       start = 0;                                               //Start again at 0.
     }
   }
+*/
   start = 0;                                                   //Set start back to 0.
 
   //When everything is done, turn off the led.
@@ -196,29 +266,29 @@ void loop(){
   gyro_pitch_input = (gyro_pitch_input * 0.8) + ((gyro_pitch / 57.14286) * 0.2);         //Gyro pid input is deg/sec.
   gyro_yaw_input = (gyro_yaw_input * 0.8) + ((gyro_yaw / 57.14286) * 0.2);               //Gyro pid input is deg/sec.
 
-  print_signals();
     //For starting the motors: throttle low and yaw left (step 1).
-  if(receiver_input_channel_3 < 1050 && receiver_input_channel_4 < 1090) {
+  if(receiver_input_channel_2 < 1050 && receiver_input_channel_1 < 1090) {
     start = 1;
   }
   //When yaw stick is back in the center position start the motors (step 2).
-  if(start == 1 && receiver_input_channel_3 < 1050 && receiver_input_channel_4 > 1450){
+  if(start == 1 && receiver_input_channel_1 < 1050 && receiver_input_channel_2 > 1450){
     start = 2;
   }
 
   //Stopping the motors: throttle low and yaw right.
-  if(start == 2 && receiver_input_channel_3 < 1050 && receiver_input_channel_4 > 1900) {
+  if(start == 2 && receiver_input_channel_2 < 1050 && receiver_input_channel_1 > 1900) {
     start = 0;
   }
 
-  throttle = receiver_input_channel_3;                                      //We need the throttle signal as a base signal.
+  throttle = receiver_input_channel_2;                                      //We need the throttle signal as a base signal.
 
   if (start == 2){                                                          //The motors are started.
-    if (throttle > 1800) throttle = 1800;                                   //We need some room to keep full control at full throttle.
-    //esc_1 = throttle - pid_output_pitch + pid_output_roll - pid_output_yaw; //Calculate the pulse for esc 1 (front-right - CCW)
-    //esc_2 = throttle + pid_output_pitch + pid_output_roll + pid_output_yaw; //Calculate the pulse for esc 2 (rear-right - CW)
-    //esc_3 = throttle + pid_output_pitch - pid_output_roll - pid_output_yaw; //Calculate the pulse for esc 3 (rear-left - CCW)
-    //esc_4 = throttle - pid_output_pitch - pid_output_roll + pid_output_yaw; //Calculate the pulse for esc 4 (front-left - CW)
+    if (throttle > 1800) throttle = 1800;
+                                       //We need some room to keep full control at full throttle.
+    esc_1 = throttle - pid_output_pitch + pid_output_roll - pid_output_yaw; //Calculate the pulse for esc 1 (front-right - CCW)
+    esc_2 = throttle + pid_output_pitch + pid_output_roll + pid_output_yaw; //Calculate the pulse for esc 2 (rear-right - CW)
+    esc_3 = throttle + pid_output_pitch - pid_output_roll - pid_output_yaw; //Calculate the pulse for esc 3 (rear-left - CCW)
+    esc_4 = throttle - pid_output_pitch - pid_output_roll + pid_output_yaw; //Calculate the pulse for esc 4 (front-left - CW)
 
     if (esc_1 < THROTTLE_THRESHOLD) esc_1 = THROTTLE_THRESHOLD;                                         //Keep the motors running.
     if (esc_2 < THROTTLE_THRESHOLD) esc_2 = THROTTLE_THRESHOLD;                                         //Keep the motors running.
@@ -237,6 +307,8 @@ void loop(){
     esc_3 = 1000;                                                           //If start is not 2 keep a 1000us pulse for ess-3.
     esc_4 = 1000;                                                           //If start is not 2 keep a 1000us pulse for ess-4.
   }
+
+  print_signals();
 
   //All the information for controlling the motor's is available.
   //The refresh rate is 250Hz. That means the esc's need there pulse every 4ms.

@@ -2,6 +2,8 @@
 
 #define THROTTLE_THRESHOLD 1100
 #define THROTTLE_MAX 1500
+#define NUM_GYRO_SAMPLES 1000
+#define SIGMA_GYRO_FACTOR 3
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //Declaring Variables
@@ -18,8 +20,10 @@ int cal_int, start;
 unsigned long loop_timer;
 double gyro_pitch, gyro_roll, gyro_yaw;
 double gyro_roll_cal, gyro_pitch_cal, gyro_yaw_cal;
+double gyro_roll_sigma, gyro_pitch_sigma, gyro_yaw_sigma;
+double gyro_roll_threshold, gyro_pitch_threshold, gyro_yaw_threshold;
 byte highByte, lowByte;
-
+byte print_counter = 0;
 
 float gyro_roll_input, gyro_pitch_input, gyro_yaw_input;
 
@@ -32,23 +36,54 @@ void gyro_signals(){
   lowByte = Wire.read();                                       //First received byte is the low part of the angular data
   highByte = Wire.read();                                      //Second received byte is the high part of the angular data
   gyro_roll = ((highByte<<8)|lowByte);                         //Multiply highByte by 256 (shift left by 8) and ad lowByte
-  if(cal_int == 2000)gyro_roll -= gyro_roll_cal;               //Only compensate after the calibration
+/*
+  if(cal_int == NUM_GYRO_SAMPLES) {
+    gyro_roll -= gyro_roll_cal;               //Only compensate after the calibration
+    if (abs(gyro_roll) < gyro_roll_threshold) {
+      gyro_roll = 0;
+    }
+  }
+*/
   lowByte = Wire.read();                                       //First received byte is the low part of the angular data
   highByte = Wire.read();                                      //Second received byte is the high part of the angular data
   gyro_pitch = ((highByte<<8)|lowByte);                        //Multiply highByte by 256 (shift left by 8) and ad lowByte
-  gyro_pitch *= -1;                                            //Invert axis
-  if(cal_int == 2000)gyro_pitch -= gyro_pitch_cal;             //Only compensate after the calibration
+/*  gyro_pitch *= -1;                                            //Invert axis
+  if(cal_int == NUM_GYRO_SAMPLES)gyro_pitch -= gyro_pitch_cal;             //Only compensate after the calibration
+*/
   lowByte = Wire.read();                                       //First received byte is the low part of the angular data
   highByte = Wire.read();                                      //Second received byte is the high part of the angular data
   gyro_yaw = ((highByte<<8)|lowByte);                          //Multiply highByte by 256 (shift left by 8) and ad lowByte
+/*
   gyro_yaw *= -1;                                              //Invert axis
-  if(cal_int == 2000)gyro_yaw -= gyro_yaw_cal;                 //Only compensate after the calibration
-//  Serial.print("roll: "); Serial.print(gyro_roll); Serial.print(" ");
-//  Serial.print("pitch: "); Serial.print(gyro_pitch); Serial.print(" ");
-//  Serial.print("yaw: "); Serial.print(gyro_yaw); Serial.print(" ");
+  if(cal_int == NUM_GYRO_SAMPLES)gyro_yaw -= gyro_yaw_cal;                 //Only compensate after the calibration
+*/
+  if(cal_int == NUM_GYRO_SAMPLES) {
+    gyro_roll -= gyro_roll_cal;               //Only compensate after the calibration
+    if (abs(gyro_roll) < gyro_roll_threshold) {
+      gyro_roll = 0;
+    }
+
+    gyro_pitch -= gyro_pitch_cal;
+    if (abs(gyro_pitch) < gyro_pitch_threshold) {
+      gyro_pitch = 0;
+    }
+
+    gyro_yaw -= gyro_yaw_cal;
+    if (abs(gyro_yaw) < gyro_yaw_threshold) {
+      gyro_yaw = 0;
+    }
+  }
+
+
 }
 
 void print_signals(){
+  Serial.print(gyro_roll_input);
+  Serial.print(" ");
+  Serial.print(gyro_pitch_input);
+  Serial.print(" ");
+  Serial.print(gyro_pitch_input);
+  Serial.print(" ");
   Serial.print(receiver_input_channel_1);
   Serial.print(" ");
   Serial.print(receiver_input_channel_2);
@@ -56,13 +91,7 @@ void print_signals(){
   Serial.print(receiver_input_channel_3);
   Serial.print("  ");
   Serial.println(receiver_input_channel_4);
-  Serial.print(" ");
-  Serial.print(gyro_roll_input);
-  Serial.print(" ");
-  Serial.print(gyro_pitch_input);
-  Serial.print(" ");
-  Serial.print(gyro_pitch_input);
-  Serial.print("\n");
+//  Serial.print("\n");
 }
 
 
@@ -91,7 +120,8 @@ void setup(){
 
   Wire.beginTransmission(105);                                 //Start communication with the gyro (adress 1101001)
   Wire.write(0x23);                                            //We want to write to register 4 (23 hex)
-  Wire.write(0x90);                                            //Set the register bits as 10010000 (Block Data Update active & 500dps full scale)
+  Wire.write(0x80);                                            // set 250 dps
+//  Wire.write(0x90);                                            //Set the register bits as 10010000 (Block Data Update active & 500dps full scale)
   Wire.endTransmission();                                      //End the transmission with the gyro
 
   delay(250);                                                  //Give the gyro time to start.
@@ -99,12 +129,18 @@ void setup(){
   Serial.print("starting gyro calibration\n");
 
   //Let's take multiple gyro data samples so we can determine the average gyro offset (calibration).
-  for (cal_int = 0; cal_int < 2000 ; cal_int ++){              //Take 2000 readings for calibration.
+  for (cal_int = 0; cal_int < NUM_GYRO_SAMPLES ; cal_int ++){              //Take 2000 readings for calibration.
     if(cal_int % 15 == 0)digitalWrite(12, !digitalRead(12));   //Change the led status to indicate calibration.
     gyro_signals();                                           //Read the gyro output.
     gyro_roll_cal += gyro_roll;                                //Ad roll value to gyro_roll_cal.
     gyro_pitch_cal += gyro_pitch;                              //Ad pitch value to gyro_pitch_cal.
-    gyro_yaw_cal += gyro_yaw;                                  //Ad yaw value to gyro_yaw_cal.
+    gyro_yaw_cal += gyro_yaw;
+
+    // calculate the standard deviation as well
+    gyro_roll_sigma += gyro_roll * gyro_roll;
+    gyro_pitch_sigma += gyro_pitch * gyro_pitch;
+    gyro_yaw_sigma += gyro_yaw * gyro_yaw;
+                        //Ad yaw value to gyro_yaw_cal.
     //We don't want the esc's to be beeping annoyingly. So let's give them a 1000us puls while calibrating the gyro.
     PORTD |= B11110000;                                        //Set digital poort 4, 5, 6 and 7 high.
     delayMicroseconds(1000);                                   //Wait 1000us.
@@ -112,9 +148,14 @@ void setup(){
     delay(3);                                                  //Wait 3 milliseconds before the next loop.
   }
   //Now that we have 2000 measures, we need to devide by 2000 to get the average gyro offset.
-  gyro_roll_cal /= 2000;                                       //Divide the roll total by 2000.
-  gyro_pitch_cal /= 2000;                                      //Divide the pitch total by 2000.
-  gyro_yaw_cal /= 2000;                                        //Divide the yaw total by 2000.
+  gyro_roll_cal /= NUM_GYRO_SAMPLES;                                       //Divide the roll total by 2000.
+  gyro_pitch_cal /= NUM_GYRO_SAMPLES;                                      //Divide the pitch total by 2000.
+  gyro_yaw_cal /= NUM_GYRO_SAMPLES;
+
+  gyro_roll_threshold = sqrt((double(gyro_roll_sigma) / NUM_GYRO_SAMPLES) - (gyro_roll_cal * gyro_roll_cal)) * SIGMA_GYRO_FACTOR;
+  gyro_pitch_threshold = sqrt((double(gyro_pitch_sigma) / NUM_GYRO_SAMPLES) - (gyro_pitch_cal * gyro_pitch_cal)) * SIGMA_GYRO_FACTOR;
+  gyro_yaw_threshold = sqrt((double(gyro_yaw_sigma) / NUM_GYRO_SAMPLES) - (gyro_yaw_cal * gyro_yaw_cal)) * SIGMA_GYRO_FACTOR;
+
 
   Serial.print("done calibrating gyro\n");
 
@@ -140,14 +181,6 @@ void setup(){
     }
   }
   start = 0;                                                   //Set start back to 0.
-
-  //Load the battery voltage to the battery_voltage variable.
-  //65 is the voltage compensation for the diode.
-  //12.6V equals ~5V @ Analog 0.
-  //12.6V equals 1023 analogRead(0).
-  //1260 / 1023 = 1.2317.
-  //The variable battery_voltage holds 1050 if the battery voltage is 10.5V.
-  //  battery_voltage = (analogRead(0) + 65) * 1.2317;
 
   //When everything is done, turn off the led.
   digitalWrite(12,LOW);                                        //Turn off the warning led.
@@ -187,7 +220,7 @@ void loop(){
     //esc_3 = throttle + pid_output_pitch - pid_output_roll - pid_output_yaw; //Calculate the pulse for esc 3 (rear-left - CCW)
     //esc_4 = throttle - pid_output_pitch - pid_output_roll + pid_output_yaw; //Calculate the pulse for esc 4 (front-left - CW)
 
-    if (esc_1 < THROTTLE_THRESHOLD) esc_1 = THROTTLE_THRESHOLD                                         //Keep the motors running.
+    if (esc_1 < THROTTLE_THRESHOLD) esc_1 = THROTTLE_THRESHOLD;                                         //Keep the motors running.
     if (esc_2 < THROTTLE_THRESHOLD) esc_2 = THROTTLE_THRESHOLD;                                         //Keep the motors running.
     if (esc_3 < THROTTLE_THRESHOLD) esc_3 = THROTTLE_THRESHOLD;                                         //Keep the motors running.
     if (esc_4 < THROTTLE_THRESHOLD) esc_4 = THROTTLE_THRESHOLD;                                         //Keep the motors running.

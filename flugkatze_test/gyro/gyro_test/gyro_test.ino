@@ -112,7 +112,7 @@ void setupGyro()
 {
   gyroWriteI2C(CTRL_REG1, 0x1F);        // Turn on all axes, disable power down
   gyroWriteI2C(CTRL_REG3, 0x08);        // Enable control ready signal
-  setGyroSensitivity500();
+  setGyroSensitivity250();
 
   delay(100);
 }
@@ -182,7 +182,7 @@ void testCalibration()
     Serial.print("  ");  
   }
   Serial.println();
-  return; 
+  //return; 
 }
 
 
@@ -196,6 +196,7 @@ void setup() {
   Serial.print("calibrating gyro\n");
   calibrateGyro();
   Serial.print("init finished");
+  testCalibration();
 }
 
 void loop() {

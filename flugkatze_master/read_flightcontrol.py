@@ -6,7 +6,7 @@ import serial, time
 
 flugkatze_flightcontrol = serial.Serial();
 flugkatze_flightcontrol.port = "/dev/ttyUSB0"
-flugkatze_flightcontrol.baudrate = 9600
+flugkatze_flightcontrol.baudrate = 38400
 flugkatze_flightcontrol.bytesize = serial.EIGHTBITS
 flugkatze_flightcontrol.parity = serial.PARITY_NONE
 flugkatze_flightcontrol.stopbits = serial.STOPBITS_ONE
@@ -14,18 +14,21 @@ flugkatze_flightcontrol.timeout = None
 
 
 try:
-	flugkatze_flightcontrol.open()
+    flugkatze_flightcontrol.open()
 except Exception, e:
-	print "error opening serial port /dev/ttyUSB0: ", str(e)
-	exit()
+    print "error opening serial port /dev/ttyUSB0: ", str(e)
+    exit()
+
+log = open('./log.readFlightcontrol', 'w+')
 
 if flugkatze_flightcontrol.isOpen():
-	flugkatze_flightcontrol.flushInput()
-	flugkatze_flightcontrol.flushOutput()
+    flugkatze_flightcontrol.flushInput()
+    flugkatze_flightcontrol.flushOutput()
 
-	while True:
-		msg = flugkatze_flightcontrol.readline()
-		print "flugkatze_flightcontrol: " + msg
+    while True:
+        msg = flugkatze_flightcontrol.readline()
+        print "flugkatze_flightcontrol: " + msg
+        log.writelines(msg)
 
 
-	    
+ 

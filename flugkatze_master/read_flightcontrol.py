@@ -1,12 +1,12 @@
 #!/usr/bin/python
 
-import serial, time
+import serial, time, struct
 
 # create a serial object and connect it to /dev/ttyUSB0
 
 flugkatze_flightcontrol = serial.Serial();
 flugkatze_flightcontrol.port = "/dev/ttyUSB0"
-flugkatze_flightcontrol.baudrate = 9600
+flugkatze_flightcontrol.baudrate = 38400
 flugkatze_flightcontrol.bytesize = serial.EIGHTBITS
 flugkatze_flightcontrol.parity = serial.PARITY_NONE
 flugkatze_flightcontrol.stopbits = serial.STOPBITS_ONE
@@ -24,6 +24,15 @@ log = open('./log.readFlightcontrol', 'w+')
 if flugkatze_flightcontrol.isOpen():
     flugkatze_flightcontrol.flushInput()
     flugkatze_flightcontrol.flushOutput()
+
+#   for binary data (later use)
+#    while True:
+#        Byte = flugkatze_flightcontrol.read(1)
+#        if Byte == 'S':
+#            data = flugkatze_flightcontrol.read(36)
+#            Byte = flugkatze_flightcontrol.read(1)
+#            if Byte == 'E':
+#                print (struct.unpack("I", data))
 
     while True:
         msg = flugkatze_flightcontrol.readline()

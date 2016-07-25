@@ -3,6 +3,7 @@
 #define THROTTLE_THRESHOLD 1150
 #define THROTTLE_MAX 1500
 #define N_SAMPLES 250
+#define MPUADDR 0x68
 
 
 /*
@@ -11,18 +12,18 @@
 LEFT SIDE TRCV
                           ^
                           |  channel 2
-                          |
+                          |  THROTTLE
     channel 1      <----- o ----->
-                          |
+    YAW                   |
                           |
                           v
 
 RIGHT SIDE TRCV
                           ^
                           |  channel 3
-                          |
+                          |  PITCH
     channel 4      <----- o ----->
-                          |
+    ROLL                  |
                           |
                           v
 */
@@ -65,34 +66,44 @@ float pid_i_mem_roll, pid_roll_setpoint, gyro_roll_input, pid_output_roll, pid_l
 float pid_i_mem_pitch, pid_pitch_setpoint, gyro_pitch_input, pid_output_pitch, pid_last_pitch_d_error;
 float pid_i_mem_yaw, pid_yaw_setpoint, gyro_yaw_input, pid_output_yaw, pid_last_yaw_d_error;
 
-void gyro_signalen(){
+struct Flight_data {
+    double ax;
+    double ay;
+    double az;
+    
+    float temp;
+    
+    double gx;
+    double gy;
+    double gz;
+    
+    int throttle;
+    int roll;
+    int pitch;
+    int yaw;
+} flight_data;
 
-  Wire.beginTransmission(105);                                 //Start communication with the gyro (adress 1101001)
-  Wire.write(168);                                             //Start reading @ register 28h and auto increment with every read
-  Wire.endTransmission();                                      //End the transmission
-  Wire.requestFrom(105, 6);                                    //Request 6 bytes from the gyro
-  
-  while(Wire.available() < 6);                                 //Wait until the 6 bytes are received
-  
-  lowByte = Wire.read();                                       //First received byte is the low part of the angular data
-  highByte = Wire.read();                                      //Second received byte is the high part of the angular data
-  gyro_roll = ((highByte<<8)|lowByte);                         //Multiply highByte by 256 (shift left by 8) and ad lowByte
-  
-  if(cal_int == N_SAMPLES)gyro_roll -= gyro_roll_cal;               //Only compensate after the calibration
-  
-  lowByte = Wire.read();                                       //First received byte is the low part of the angular data
-  highByte = Wire.read();                                      //Second received byte is the high part of the angular data
-  gyro_pitch = ((highByte<<8)|lowByte);                        //Multiply highByte by 256 (shift left by 8) and ad lowByte
-  gyro_pitch *= -1;                                            //Invert axis
-  
-  if(cal_int == N_SAMPLES)gyro_pitch -= gyro_pitch_cal;             //Only compensate after the calibration
-  
-  lowByte = Wire.read();                                       //First received byte is the low part of the angular data
-  highByte = Wire.read();                                      //Second received byte is the high part of the angular data
-  gyro_yaw = ((highByte<<8)|lowByte);                          //Multiply highByte by 256 (shift left by 8) and ad lowByte
-  gyro_yaw *= -1;                                              //Invert axis
-  
-  if(cal_int == N_SAMPLES)gyro_yaw -= gyro_yaw_cal;                 //Only compensate after the calibration
+void imu () {
+      Wire.beginTransmission(MPUADDR);
+      Wire.write(0x3B);  // starting with register 0x3B (ACCEL_XOUT_H)
+      Wire.endTransmission(false);
+      Wire.requestFrom(MPUADDR, 14, true);  // request a total of 14 registers
+
+      flight_data.ax = (Wire.read() << 8) | Wire.read();  // 0x3B (ACCEL_XOUT_H) & 0x3C (ACCEL_XOUT_L)    
+      flight_data.ay = (Wire.read() << 8) | Wire.read();  // 0x3D (ACCEL_YOUT_H) & 0x3E (ACCEL_YOUT_L)
+      flight_data.az = (Wire.read() << 8) | Wire.read();  // 0x3F (ACCEL_ZOUT_H) & 0x40 (ACCEL_ZOUT_L)
+
+      flight_data.temp = (Wire.read() << 8) | Wire.read();  // 0x41 (TEMP_OUT_H) & 0x42 (TEMP_OUT_L)
+
+      flight_data.gx = (Wire.read() << 8) | Wire.read();  // 0x43 (GYRO_XOUT_H) & 0x44 (GYRO_XOUT_L)
+      flight_data.gy = (Wire.read() << 8) | Wire.read();  // 0x45 (GYRO_YOUT_H) & 0x46 (GYRO_YOUT_L)
+      flight_data.gz = (Wire.read() << 8) | Wire.read();  // 0x47 (GYRO_ZOUT_H) & 0x48 (GYRO_ZOUT_L)
+      
+      if (cal_int == N_SAMPLES) {
+        flight_data.gx -= gyro_roll_cal;
+        flight_data.gy -= gyro_pitch_cal;
+        gyro_yaw -= gyro_yaw_cal;
+      }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -155,7 +166,7 @@ void print_signals(){
   Serial.print(gyro_pitch_input);
   Serial.print(" ");
   Serial.print(gyro_pitch_input);
-  Serial.print(" \n");
+//  Serial.print(" \n");
 }
 
 
@@ -177,27 +188,23 @@ void setup(){
   digitalWrite(12,HIGH);                                       //Turn on the warning led.
   delay(250);                                                 //Wait 2 second befor continuing.
 
-  Wire.beginTransmission(105);                                 //Start communication with the gyro (adress 1101001)
-  Wire.write(0x20);                                            //We want to write to register 1 (20 hex)
-  Wire.write(0x0F);                                            //Set the register bits as 00001111 (Turn on the gyro and enable all axis)
-  Wire.endTransmission();                                      //End the transmission with the gyro
-
-  Wire.beginTransmission(105);                                 //Start communication with the gyro (adress 1101001)
-  Wire.write(0x23);                                            //We want to write to register 4 (23 hex)
-  Wire.write(0x90);                                            //Set the register bits as 10010000 (Block Data Update active & 500dps full scale)
-  Wire.endTransmission();                                      //End the transmission with the gyro
-
+// wake up the imu
+  Wire.begin();
+  Wire.beginTransmission(MPUADDR);
+  Wire.write(0x6B);  // PWR_MGMT_1 register
+  Wire.write(0);     // set to zero (wakes up the MPU-6050)
+  Wire.endTransmission(true);
   delay(250);                                                  //Give the gyro time to start.
-/*
+
   Serial.print("starting gyro calibration\n");
 
   //Let's take multiple gyro data samples so we can determine the average gyro offset (calibration).
   for (cal_int = 0; cal_int < N_SAMPLES ; cal_int ++){              //Take 2000 readings for calibration.
     if(cal_int % 15 == 0)digitalWrite(12, !digitalRead(12));   //Change the led status to indicate calibration.
-    gyro_signalen();                                           //Read the gyro output.
-    gyro_roll_cal += gyro_roll;                                //Ad roll value to gyro_roll_cal.
-    gyro_pitch_cal += gyro_pitch;                              //Ad pitch value to gyro_pitch_cal.
-    gyro_yaw_cal += gyro_yaw;                                  //Ad yaw value to gyro_yaw_cal.
+    imu();                                           //Read the gyro output.
+    gyro_roll_cal += flight_data.gx;                                //Ad roll value to gyro_roll_cal.
+    gyro_pitch_cal += flight_data.gy;                              //Ad pitch value to gyro_pitch_cal.
+    gyro_yaw_cal += flight_data.gz;                                  //Ad yaw value to gyro_yaw_cal.
     //We don't want the esc's to be beeping annoyingly. So let's give them a 1000us puls while calibrating the gyro.
     PORTD |= B11110000;                                        //Set digital poort 4, 5, 6 and 7 high.
     delayMicroseconds(1000);                                   //Wait 1000us.
@@ -209,8 +216,11 @@ void setup(){
   gyro_pitch_cal /= N_SAMPLES;                                      //Divide the pitch total by 2000.
   gyro_yaw_cal /= N_SAMPLES;                                        //Divide the yaw total by 2000.
 
+    Serial.print("roll offset: ");
+    Serial.print(gyro_roll_cal);
+
   Serial.print("done calibrating gyro\n");
-*/
+
   PCICR |= (1 << PCIE0);                                       //Set PCIE0 to enable PCMSK0 scan.
   PCMSK0 |= (1 << PCINT0);                                     //Set PCINT0 (digital input 8) to trigger an interrupt on state change.
   PCMSK0 |= (1 << PCINT1);                                     //Set PCINT1 (digital input 9)to trigger an interrupt on state change.
@@ -220,8 +230,9 @@ void setup(){
   Serial.print("waiting on user input\n");
 
   //Wait until the receiver is active and the throtle is set to the lower position.
-  while(receiver_input_channel_2 < 990 || receiver_input_channel_2 > 1020 || receiver_input_channel_1 < 1400){
-    start ++;                                                  //While waiting increment start whith every loop.
+  while(receiver_input_channel_2 < 900 || receiver_input_channel_2 > 1040 || receiver_input_channel_1 < 1400){
+    start ++;     
+                                                 //While waiting increment start whith every loop.
     //We don't want the esc's to be beeping annoyingly. So let's give them a 1000us puls while waiting for the receiver inputs.
     PORTD |= B11110000;                                        //Set digital poort 4, 5, 6 and 7 high.
     delayMicroseconds(1000);                                   //Wait 1000us.
@@ -234,32 +245,42 @@ void setup(){
   }
   start = 0;                                                   //Set start back to 0.
 
-  //Load the battery voltage to the battery_voltage variable.
-  //65 is the voltage compensation for the diode.
-  //12.6V equals ~5V @ Analog 0.
-  //12.6V equals 1023 analogRead(0).
-  //1260 / 1023 = 1.2317.
-  //The variable battery_voltage holds 1050 if the battery voltage is 10.5V.
-  //  battery_voltage = (analogRead(0) + 65) * 1.2317;
-
   //When everything is done, turn off the led.
   digitalWrite(12,LOW);                                        //Turn off the warning led.
   Serial.print("init done\n");
 }
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //Main program loop
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void loop(){
   //Let's get the current gyro data and scale it to degrees per second for the pid calculations.
-//  gyro_signalen();
-  gyro_roll_input = 0.0;            //Gyro pid input is deg/sec.
-  gyro_pitch_input = 0.0;         //Gyro pid input is deg/sec.
-  gyro_yaw_input = 0.0;               //Gyro pid input is deg/sec.
+  imu();
+  
+  flight_data.throttle = receiver_input_channel_2;
+  flight_data.roll = receiver_input_channel_4;
+  flight_data.pitch = receiver_input_channel_3;
+  flight_data.yaw = receiver_input_channel_1;
 
-  //gyro_roll_input = (gyro_roll_input * 0.8) + ((gyro_roll / 57.14286) * 0.2);            //Gyro pid input is deg/sec.
-  //gyro_pitch_input = (gyro_pitch_input * 0.8) + ((gyro_pitch / 57.14286) * 0.2);         //Gyro pid input is deg/sec.
-  //gyro_yaw_input = (gyro_yaw_input * 0.8) + ((gyro_yaw / 57.14286) * 0.2);               //Gyro pid input is deg/sec.
+/*
+  // doesn't quite work yet. (which is probably due to python.. 
+  // some voodo to serialize the data and send it over serial:
+  char len = sizeof(flight_data);       // get the length of the struct
+  Serial.print("size of struct: ");     // for debugging purposes -> 36
+  Serial.print(len, DEC);               // see line above
+  Serial.print("\n");                   // see line above (gnihihi)
+  
+  char aux[len];                        // auxiliary buffer used to serialize the struct
+  memcpy(&aux, &flight_data, len);      // copy the struc into the new buffer
+  Serial.write('S');                    // starting byte to ensure data integrity
+  Serial.write((uint8_t *) &aux, len);  // send the actual data
+  Serial.write('E');                    // end byte to ensure data integrity
+*/
+  gyro_roll_input = (gyro_roll_input * 0.8) + ((flight_data.gx / 57.14286) * 0.2);            //Gyro pid input is deg/sec.
+  gyro_pitch_input = (gyro_pitch_input * 0.8) + ((flight_data.gy / 57.14286) * 0.2);         //Gyro pid input is deg/sec.
+  gyro_yaw_input = (gyro_yaw_input * 0.8) + ((flight_data.gz / 57.14286) * 0.2);               //Gyro pid input is deg/sec.
 
+    //print_signals();
 
     //For starting the motors: throttle low and yaw left (step 1).
   if(receiver_input_channel_2 < 1050 && receiver_input_channel_1 < 1090) {
@@ -269,7 +290,7 @@ void loop(){
   //When yaw stick is back in the center position start the motors (step 2).
   if(start == 1 && receiver_input_channel_2 < 1050 && receiver_input_channel_1 > 1450){
     start = 2;
-	Serial.print(" stage 2 ");
+    Serial.print(" stage 2 ");
     //Reset the pid controllers for a bumpless start.
     pid_i_mem_roll = 0;
     pid_last_roll_d_error = 0;
@@ -378,6 +399,8 @@ void loop(){
     if(timer_channel_3 <= esc_loop_timer)PORTD &= B10111111;                //Set digital output 6 to low if the time is expired.
     if(timer_channel_4 <= esc_loop_timer)PORTD &= B01111111;                //Set digital output 7 to low if the time is expired.
   }
+  
+  delay(250);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

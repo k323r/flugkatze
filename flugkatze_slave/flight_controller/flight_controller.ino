@@ -4,6 +4,30 @@
 #define THROTTLE_MAX 1500
 #define N_SAMPLES 250
 
+
+/*
+### channel:
+
+LEFT SIDE TRCV
+                          ^
+                          |  channel 2
+                          |
+    channel 1      <----- o ----->
+                          |
+                          |
+                          v
+
+RIGHT SIDE TRCV
+                          ^
+                          |  channel 3
+                          |
+    channel 4      <----- o ----->
+                          |
+                          |
+                          v
+*/
+
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //PID gain and limit settings
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -42,25 +66,33 @@ float pid_i_mem_pitch, pid_pitch_setpoint, gyro_pitch_input, pid_output_pitch, p
 float pid_i_mem_yaw, pid_yaw_setpoint, gyro_yaw_input, pid_output_yaw, pid_last_yaw_d_error;
 
 void gyro_signalen(){
+
   Wire.beginTransmission(105);                                 //Start communication with the gyro (adress 1101001)
   Wire.write(168);                                             //Start reading @ register 28h and auto increment with every read
   Wire.endTransmission();                                      //End the transmission
   Wire.requestFrom(105, 6);                                    //Request 6 bytes from the gyro
+  
   while(Wire.available() < 6);                                 //Wait until the 6 bytes are received
+  
   lowByte = Wire.read();                                       //First received byte is the low part of the angular data
   highByte = Wire.read();                                      //Second received byte is the high part of the angular data
   gyro_roll = ((highByte<<8)|lowByte);                         //Multiply highByte by 256 (shift left by 8) and ad lowByte
-  if(cal_int == 2000)gyro_roll -= gyro_roll_cal;               //Only compensate after the calibration
+  
+  if(cal_int == N_SAMPLES)gyro_roll -= gyro_roll_cal;               //Only compensate after the calibration
+  
   lowByte = Wire.read();                                       //First received byte is the low part of the angular data
   highByte = Wire.read();                                      //Second received byte is the high part of the angular data
   gyro_pitch = ((highByte<<8)|lowByte);                        //Multiply highByte by 256 (shift left by 8) and ad lowByte
   gyro_pitch *= -1;                                            //Invert axis
-  if(cal_int == 2000)gyro_pitch -= gyro_pitch_cal;             //Only compensate after the calibration
+  
+  if(cal_int == N_SAMPLES)gyro_pitch -= gyro_pitch_cal;             //Only compensate after the calibration
+  
   lowByte = Wire.read();                                       //First received byte is the low part of the angular data
   highByte = Wire.read();                                      //Second received byte is the high part of the angular data
   gyro_yaw = ((highByte<<8)|lowByte);                          //Multiply highByte by 256 (shift left by 8) and ad lowByte
   gyro_yaw *= -1;                                              //Invert axis
-  if(cal_int == 2000)gyro_yaw -= gyro_yaw_cal;                 //Only compensate after the calibration
+  
+  if(cal_int == N_SAMPLES)gyro_yaw -= gyro_yaw_cal;                 //Only compensate after the calibration
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -156,7 +188,7 @@ void setup(){
   Wire.endTransmission();                                      //End the transmission with the gyro
 
   delay(250);                                                  //Give the gyro time to start.
-
+/*
   Serial.print("starting gyro calibration\n");
 
   //Let's take multiple gyro data samples so we can determine the average gyro offset (calibration).
@@ -173,12 +205,12 @@ void setup(){
     delay(3);                                                  //Wait 3 milliseconds before the next loop.
   }
   //Now that we have 2000 measures, we need to devide by 2000 to get the average gyro offset.
-  gyro_roll_cal /= 2000;                                       //Divide the roll total by 2000.
-  gyro_pitch_cal /= 2000;                                      //Divide the pitch total by 2000.
-  gyro_yaw_cal /= 2000;                                        //Divide the yaw total by 2000.
+  gyro_roll_cal /= N_SAMPLES;                                       //Divide the roll total by 2000.
+  gyro_pitch_cal /= N_SAMPLES;                                      //Divide the pitch total by 2000.
+  gyro_yaw_cal /= N_SAMPLES;                                        //Divide the yaw total by 2000.
 
   Serial.print("done calibrating gyro\n");
-
+*/
   PCICR |= (1 << PCIE0);                                       //Set PCIE0 to enable PCMSK0 scan.
   PCMSK0 |= (1 << PCINT0);                                     //Set PCINT0 (digital input 8) to trigger an interrupt on state change.
   PCMSK0 |= (1 << PCINT1);                                     //Set PCINT1 (digital input 9)to trigger an interrupt on state change.
@@ -188,7 +220,7 @@ void setup(){
   Serial.print("waiting on user input\n");
 
   //Wait until the receiver is active and the throtle is set to the lower position.
-  while(receiver_input_channel_3 < 990 || receiver_input_channel_3 > 1020 || receiver_input_channel_4 < 1400){
+  while(receiver_input_channel_2 < 990 || receiver_input_channel_2 > 1020 || receiver_input_channel_1 < 1400){
     start ++;                                                  //While waiting increment start whith every loop.
     //We don't want the esc's to be beeping annoyingly. So let's give them a 1000us puls while waiting for the receiver inputs.
     PORTD |= B11110000;                                        //Set digital poort 4, 5, 6 and 7 high.
@@ -230,12 +262,12 @@ void loop(){
 
 
     //For starting the motors: throttle low and yaw left (step 1).
-  if(receiver_input_channel_3 < 1050 && receiver_input_channel_4 < 1090) {
+  if(receiver_input_channel_2 < 1050 && receiver_input_channel_1 < 1090) {
 	start = 1;
 	Serial.print(" stage 1 ");
   }
   //When yaw stick is back in the center position start the motors (step 2).
-  if(start == 1 && receiver_input_channel_3 < 1050 && receiver_input_channel_4 > 1450){
+  if(start == 1 && receiver_input_channel_2 < 1050 && receiver_input_channel_1 > 1450){
     start = 2;
 	Serial.print(" stage 2 ");
     //Reset the pid controllers for a bumpless start.
@@ -247,29 +279,33 @@ void loop(){
     pid_last_yaw_d_error = 0;
   }
   //Stopping the motors: throttle low and yaw right.
-  if(start == 2 && receiver_input_channel_3 < 1050 && receiver_input_channel_4 > 1900)start = 0;
+  if(start == 2 && receiver_input_channel_2 < 1050 && receiver_input_channel_1 > 1800) {
+    start = 0;
+    Serial.print("stage 0 ");
+  }
 
   //The PID set point in degrees per second is determined by the roll receiver input.
   //In the case of deviding by 3 the max roll rate is aprox 164 degrees per second ( (500-8)/3 = 164d/s ).
   pid_roll_setpoint = 0;
+  
   //We need a little dead band of 16us for better results.
-  if(receiver_input_channel_1 > 1508) pid_roll_setpoint = (receiver_input_channel_1 - 1508)/3.0;
-  else if(receiver_input_channel_1 < 1492)pid_roll_setpoint = (receiver_input_channel_1 - 1492)/3.0;
+  if(receiver_input_channel_4 > 1508) pid_roll_setpoint = (receiver_input_channel_4 - 1508)/3.0;
+  else if(receiver_input_channel_4 < 1492) pid_roll_setpoint = (receiver_input_channel_4 - 1492)/3.0;
 
   //The PID set point in degrees per second is determined by the pitch receiver input.
   //In the case of deviding by 3 the max pitch rate is aprox 164 degrees per second ( (500-8)/3 = 164d/s ).
   pid_pitch_setpoint = 0;
   //We need a little dead band of 16us for better results.
-  if(receiver_input_channel_2 > 1508)pid_pitch_setpoint = (receiver_input_channel_2 - 1508)/3.0;
-  else if(receiver_input_channel_2 < 1492)pid_pitch_setpoint = (receiver_input_channel_2 - 1492)/3.0;
+  if(receiver_input_channel_3 > 1508)pid_pitch_setpoint = (receiver_input_channel_3 - 1508)/3.0;
+  else if(receiver_input_channel_3 < 1492)pid_pitch_setpoint = (receiver_input_channel_3 - 1492)/3.0;
 
   //The PID set point in degrees per second is determined by the yaw receiver input.
   //In the case of deviding by 3 the max yaw rate is aprox 164 degrees per second ( (500-8)/3 = 164d/s ).
   pid_yaw_setpoint = 0;
   //We need a little dead band of 16us for better results.
-  if(receiver_input_channel_3 > 1050){ //Do not yaw when turning off the motors.
-    if(receiver_input_channel_4 > 1508)pid_yaw_setpoint = (receiver_input_channel_4 - 1508)/3.0;
-    else if(receiver_input_channel_4 < 1492)pid_yaw_setpoint = (receiver_input_channel_4 - 1492)/3.0;
+  if(receiver_input_channel_1 > 1050){ //Do not yaw when turning off the motors.
+    if(receiver_input_channel_1 > 1508)pid_yaw_setpoint = (receiver_input_channel_1 - 1508)/3.0;
+    else if(receiver_input_channel_1 < 1492)pid_yaw_setpoint = (receiver_input_channel_1 - 1492)/3.0;
   }
   //PID inputs are known. So we can calculate the pid output.
   calculate_pid();
@@ -282,10 +318,10 @@ void loop(){
   //Turn on the led if battery voltage is to low.
   //if(battery_voltage < 1050 && battery_voltage > 600)digitalWrite(12, HIGH);
 
-  throttle = receiver_input_channel_3;                                      //We need the throttle signal as a base signal.
+  throttle = receiver_input_channel_2;                                      //We need the throttle signal as a base signal.
 
 
-	print_signals();
+//  print_signals();
 //  throttle_rel = (throttle - 1000) / 100.0;
 // print_signals();
 

@@ -6,7 +6,7 @@ import serial, time
 
 flugkatze_flightcontrol = serial.Serial();
 flugkatze_flightcontrol.port = "/dev/ttyUSB0"
-flugkatze_flightcontrol.baudrate = 38400
+flugkatze_flightcontrol.baudrate = 9600
 flugkatze_flightcontrol.bytesize = serial.EIGHTBITS
 flugkatze_flightcontrol.parity = serial.PARITY_NONE
 flugkatze_flightcontrol.stopbits = serial.STOPBITS_ONE

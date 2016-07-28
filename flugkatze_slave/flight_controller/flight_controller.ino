@@ -1,8 +1,8 @@
 #include <Wire.h> //Include the Wire.h library so we can communicate with the gyro.
 
 #define THROTTLE_THRESHOLD 1150
-#define THROTTLE_MAX 1500
-#define N_SAMPLES 250
+#define THROTTLE_MAX 1200
+#define N_SAMPLES 500
 #define MPUADDR 0x68
 
 
@@ -67,21 +67,23 @@ float pid_i_mem_pitch, pid_pitch_setpoint, gyro_pitch_input, pid_output_pitch, p
 float pid_i_mem_yaw, pid_yaw_setpoint, gyro_yaw_input, pid_output_yaw, pid_last_yaw_d_error;
 
 struct Flight_data {
-    double ax;
-    double ay;
-    double az;
+    float ax;
+    float ay;
+    float az;
     
     float temp;
     
-    double gx;
-    double gy;
-    double gz;
+    float gx;
+    float gy;
+    float gz;
     
     int throttle;
     int roll;
     int pitch;
     int yaw;
 } flight_data;
+
+char len_struct = sizeof(flight_data);
 
 void imu () {
       Wire.beginTransmission(MPUADDR);
@@ -178,6 +180,10 @@ void setup(){
   Serial.begin(38400);
   Serial.print("init\n");
 
+  Serial.print("length of struct: ");
+  Serial.print(len_struct,DEC);
+  Serial.print("\n");
+
   Wire.begin();                                                //Start the I2C as master.
 
   DDRD |= B11110000;                                           //Configure digital poort 4, 5, 6 and 7 as output.
@@ -262,20 +268,13 @@ void loop(){
   flight_data.pitch = receiver_input_channel_3;
   flight_data.yaw = receiver_input_channel_1;
 
-/*
-  // doesn't quite work yet. (which is probably due to python.. 
-  // some voodo to serialize the data and send it over serial:
-  char len = sizeof(flight_data);       // get the length of the struct
-  Serial.print("size of struct: ");     // for debugging purposes -> 36
-  Serial.print(len, DEC);               // see line above
-  Serial.print("\n");                   // see line above (gnihihi)
-  
-  char aux[len];                        // auxiliary buffer used to serialize the struct
-  memcpy(&aux, &flight_data, len);      // copy the struc into the new buffer
+
+  char aux[len_struct];                 // auxiliary buffer used to serialize the struct
+  memcpy(&aux, &flight_data, len_struct);   // copy the struc into the new buffer
   Serial.write('S');                    // starting byte to ensure data integrity
-  Serial.write((uint8_t *) &aux, len);  // send the actual data
+  Serial.write((uint8_t *) &aux, len_struct);  // send the actual data
   Serial.write('E');                    // end byte to ensure data integrity
-*/
+
   gyro_roll_input = (gyro_roll_input * 0.8) + ((flight_data.gx / 57.14286) * 0.2);            //Gyro pid input is deg/sec.
   gyro_pitch_input = (gyro_pitch_input * 0.8) + ((flight_data.gy / 57.14286) * 0.2);         //Gyro pid input is deg/sec.
   gyro_yaw_input = (gyro_yaw_input * 0.8) + ((flight_data.gz / 57.14286) * 0.2);               //Gyro pid input is deg/sec.
@@ -400,7 +399,6 @@ void loop(){
     if(timer_channel_4 <= esc_loop_timer)PORTD &= B01111111;                //Set digital output 7 to low if the time is expired.
   }
   
-  delay(250);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

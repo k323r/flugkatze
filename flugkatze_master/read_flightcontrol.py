@@ -6,7 +6,7 @@ import serial, time, struct
 
 flugkatze_flightcontrol = serial.Serial();
 flugkatze_flightcontrol.port = "/dev/ttyUSB0"
-flugkatze_flightcontrol.baudrate = 38400
+flugkatze_flightcontrol.baudrate = 115200
 flugkatze_flightcontrol.bytesize = serial.EIGHTBITS
 flugkatze_flightcontrol.parity = serial.PARITY_NONE
 flugkatze_flightcontrol.stopbits = serial.STOPBITS_ONE
@@ -44,10 +44,15 @@ struct Flight_data {
     int roll;
     int pitch;
     int yaw;
+    
+    float roll_setpoint;
+    float pitch_setpoint;
+    float yaw_setpoint;
+    
 } flight_data;
 '''
 
-FORMAT_STR = "fffffffhhhh"
+FORMAT_STR = "fffffffhhhhfff"
 
 print struct.calcsize(FORMAT_STR)
 

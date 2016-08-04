@@ -80,6 +80,11 @@ struct Flight_data {
     int roll;
     int pitch;
     int yaw;
+    
+    float roll_setpoint;
+    float pitch_setpoint;
+    float yaw_setpoint;
+    
 } flight_data;
 
 char len_struct = sizeof(flight_data);
@@ -103,7 +108,7 @@ void imu () {
       if (cal_int == N_SAMPLES) {
         flight_data.gx -= gyro_roll_cal;
         flight_data.gy -= gyro_pitch_cal;
-        gyro_yaw -= gyro_yaw_cal;
+        flight_data.gz -= gyro_yaw_cal;
       }
 }
 
@@ -121,7 +126,6 @@ void calculate_pid(){
   else if(pid_i_mem_roll < pid_max_roll * -1) pid_i_mem_roll = pid_max_roll * -1;
 
   pid_output_roll = (( pid_p_gain_roll * pid_error_temp ) + pid_i_mem_roll + ( pid_d_gain_roll * (pid_error_temp - pid_last_roll_d_error))) * -1; // maybe *-1 ? 
-// old version
   if(pid_output_roll > pid_max_roll) pid_output_roll = pid_max_roll;
   else if(pid_output_roll < pid_max_roll * -1) pid_output_roll = pid_max_roll * -1;
 
@@ -268,13 +272,6 @@ void loop(){
   flight_data.pitch = receiver_input_channel_3;
   flight_data.yaw = receiver_input_channel_1;
 
-
-  //char aux[len_struct];                 // auxiliary buffer used to serialize the struct -> put init before loop!!!!!!!
-  //memcpy(&aux, &flight_data, len_struct);   // copy the struc into the new buffer
-  //Serial.write('S');                    // starting byte to ensure data integrity
-  //Serial.write((uint8_t *) &aux, len_struct);  // send the actual data
-  //Serial.write('E');                    // end byte to ensure data integrity
-
   gyro_roll_input = (gyro_roll_input * 0.8) + ((flight_data.gx / 57.14286) * 0.2);            //Gyro pid input is deg/sec.
   gyro_pitch_input = (gyro_pitch_input * 0.8) + ((flight_data.gy / 57.14286) * 0.2);         //Gyro pid input is deg/sec.
   gyro_yaw_input = (gyro_yaw_input * 0.8) + ((flight_data.gz / 57.14286) * 0.2);               //Gyro pid input is deg/sec.
@@ -312,13 +309,6 @@ void loop(){
   if(receiver_input_channel_4 > 1508) pid_roll_setpoint = (receiver_input_channel_4 - 1508)/3.0;
   else if(receiver_input_channel_4 < 1492) pid_roll_setpoint = (receiver_input_channel_4 - 1492)/3.0;
 
-  Serial.print("roll setpoint: ");
-  Serial.print(pid_roll_setpoint);
-  Serial.print("\n");
-
-//  if(receiver_input_channel_4 > 1508) pid_roll_setpoint = (receiver_input_channel_4 - 1508)/3.0;
-//  else if(receiver_input_channel_4 < 1492) pid_roll_setpoint = (receiver_input_channel_4 - 1492)/3.0;
-
   //The PID set point in degrees per second is determined by the pitch receiver input.
   //In the case of deviding by 3 the max pitch rate is aprox 164 degrees per second ( (500-8)/3 = 164d/s ).
   pid_pitch_setpoint = 0;
@@ -334,46 +324,27 @@ void loop(){
     if(receiver_input_channel_1 > 1508)pid_yaw_setpoint = (receiver_input_channel_1 - 1508)/3.0;
     else if(receiver_input_channel_1 < 1492)pid_yaw_setpoint = (receiver_input_channel_1 - 1492)/3.0;
   }
+
   //PID inputs are known. So we can calculate the pid output.
   calculate_pid();
 
-  //The battery voltage is needed for compensation.
-  //A complementary filter is used to reduce noise.
-  //0.09853 = 0.08 * 1.2317.
-  // battery_voltage = battery_voltage * 0.92 + (analogRead(0) + 65) * 0.09853;
+//  flight_data.roll_setpoint = 
 
-  //Turn on the led if battery voltage is to low.
-  //if(battery_voltage < 1050 && battery_voltage > 600)digitalWrite(12, HIGH);
+  char aux[len_struct];                 // auxiliary buffer used to serialize the struct -> put init before loop!!!!!!!
+  memcpy(&aux, &flight_data, len_struct);   // copy the struc into the new buffer
+  Serial.write('S');                    // starting byte to ensure data integrity
+  Serial.write((uint8_t *) &aux, len_struct);  // send the actual data
+  Serial.write('E');                    // end byte to ensure data integrity
 
   throttle = receiver_input_channel_2;                                      //We need the throttle signal as a base signal.
 
-
-//  print_signals();
-//  throttle_rel = (throttle - 1000) / 100.0;
-// print_signals();
-
-//  Serial.print("throttle relative: "); Serial.print(throttle_rel);
-
-
   if (start == 2){                                                          //The motors are started.
     if (throttle > THROTTLE_MAX) throttle = THROTTLE_MAX;                                   //We need some room to keep full control at full throttle.
-// switched the signes brfore pid_output_roll!
-//    esc_1 = throttle - pid_output_pitch - pid_output_roll - pid_output_yaw; //Calculate the pulse for esc 1 (front-right - CCW)
-//    esc_2 = throttle + pid_output_pitch - pid_output_roll + pid_output_yaw; //Calculate the pulse for esc 2 (rear-right - CW)
-//    esc_3 = throttle + pid_output_pitch + pid_output_roll - pid_output_yaw; //Calculate the pulse for esc 3 (rear-left - CCW)
-//    esc_4 = throttle - pid_output_pitch + pid_output_roll + pid_output_yaw; //Calculate the pulse for esc 4 (front-left - CW)
-// old version
+
     esc_1 = throttle - pid_output_pitch + pid_output_roll - pid_output_yaw; //Calculate the pulse for esc 1 (front-right - CCW)
     esc_2 = throttle + pid_output_pitch + pid_output_roll + pid_output_yaw; //Calculate the pulse for esc 2 (rear-right - CW)
     esc_3 = throttle + pid_output_pitch - pid_output_roll - pid_output_yaw; //Calculate the pulse for esc 3 (rear-left - CCW)
     esc_4 = throttle - pid_output_pitch - pid_output_roll + pid_output_yaw; //Calculate the pulse for esc 4 (front-left - CW)
-
-//    if (battery_voltage < 1240 && battery_voltage > 800){                   //Is the battery connected?
-//      esc_1 += esc_1 * ((1240 - battery_voltage)/(float)3500);              //Compensate the esc-1 pulse for voltage drop.
-//      esc_2 += esc_2 * ((1240 - battery_voltage)/(float)3500);              //Compensate the esc-2 pulse for voltage drop.
-//      esc_3 += esc_3 * ((1240 - battery_voltage)/(float)3500);              //Compensate the esc-3 pulse for voltage drop.
-//      esc_4 += esc_4 * ((1240 - battery_voltage)/(float)3500);              //Compensate the esc-4 pulse for voltage drop.
-//    }
 
     if (esc_1 < THROTTLE_THRESHOLD) esc_1 = THROTTLE_THRESHOLD;                                         //Keep the motors running.
     if (esc_2 < THROTTLE_THRESHOLD) esc_2 = THROTTLE_THRESHOLD;                                         //Keep the motors running.

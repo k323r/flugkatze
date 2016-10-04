@@ -12,10 +12,6 @@ flugkatze_flightcontrol.parity = serial.PARITY_NONE
 flugkatze_flightcontrol.stopbits = serial.STOPBITS_ONE
 flugkatze_flightcontrol.timeout = None
 
-FORMAT_STR = "fffffffhhhh"
-
-print struct.calcsize(FORMAT_STR)
-
 try:
     flugkatze_flightcontrol.open()
 except Exception, e:
@@ -54,9 +50,9 @@ struct Flight_data {
 
 FORMAT_STR = "fffffffhhhhfff"
 
-print struct.calcsize(FORMAT_STR)
-
 size_struct = struct.calcsize(FORMAT_STR)
+print size_struct
+
 
     # for binary data (later use)
 while True:

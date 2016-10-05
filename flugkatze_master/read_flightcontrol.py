@@ -40,15 +40,10 @@ struct Flight_data {
     int roll;
     int pitch;
     int yaw;
-    
-    float roll_setpoint;
-    float pitch_setpoint;
-    float yaw_setpoint;
-    
 } flight_data;
 '''
 
-FORMAT_STR = "fffffffhhhhfff"
+FORMAT_STR = "fffffffhhhh"
 
 size_struct = struct.calcsize(FORMAT_STR)
 print size_struct
@@ -61,7 +56,7 @@ while True:
         data = flugkatze_flightcontrol.read(size_struct)
         Byte = flugkatze_flightcontrol.read(1)
         if Byte == 'E':
-            msg = str(struct.unpack(FORMAT_STR, data))
+            msg = str(struct.unpack(FORMAT_STR, data)).replace("(", "").replace(")", "")
             print (msg)
             log.writelines(msg + "\n")
 #    while True:

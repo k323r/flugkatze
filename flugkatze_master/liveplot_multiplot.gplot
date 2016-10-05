@@ -1,0 +1,29 @@
+#!/usr/bin/gnuplot -rv
+
+# set terminal x11 1 noraise
+
+set multiplot layout 3, 2 title "Flugkatze Telemetrie" font ",14"
+set tmargin 2
+
+set title "Throttle"
+plot "< tail -n 50 log.readFlightcontrol" using 8 title "Throttle" with lines lc rgb "red"
+
+set title "Roll"
+plot "< tail -n 50 log.readFlightcontrol" using 9 title "Roll" with lines lc rgb "red"
+
+set title "Pitch"
+plot "< tail -n 50 log.readFlightcontrol" using 10 title "Pitch" with lines lc rgb "blue"
+
+set title "Yaw"
+plot "< tail -n 50 log.readFlightcontrol" using 11 title "Yaw" with lines lc rgb "blue"
+
+set title "Ax"
+plot "< tail -n 50 log.readFlightcontrol" using 1 title "Ax" with lines lc rgb "green"
+
+set title "Gx"
+plot "< tail -n 50 log.readFlightcontrol"  using 5 title "Gx" with lines lc rgb "green"
+
+pause 1
+
+refresh
+reread

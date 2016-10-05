@@ -103,8 +103,6 @@ struct Flight_data {
 
 char len_struct = sizeof(flight_data);
 
-char aux[len_struct];
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Setup routine
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -205,7 +203,8 @@ void loop(){
     flight_data.yaw = receiver_input_channel_1;
 
     // send telemetry (stored in the flight_data struct)
-    //char aux[len_struct];                 // auxiliary buffer used to serialize the struct -> put init before loop!!!!!!!
+    char len_struct = sizeof(flight_data);
+    char aux[len_struct];                 // auxiliary buffer used to serialize the struct -> put init before loop!!!!!!!
     memcpy(&aux, &flight_data, len_struct);   // copy the struct into the new buffer
     Serial.write('S');                    // starting byte to ensure data integrity
     Serial.write((uint8_t *) &aux, len_struct);  // send the actual data

@@ -1,0 +1,26 @@
+#!/usr/bin/gnuplot -rv
+
+set terminal x11 1 noraise
+set xtics 100
+# set mxtics 4
+# set xdata time
+
+# set ytics 1 nomirror
+# set mytics 2
+
+# set yrange [8:12]
+# set ytics  10
+# set y2range [0:255]
+# set y2tics 25
+# set my2tics 4
+
+set grid
+set ylabel 'Acceleration X [1/s]'
+# set y2label 'PWM Signal [-]'
+# set y2label 'PWM Signal [-]' textcolor rgb '#00CD63'
+
+plot "< tail -n 100 log.readFlightcontrol" using 7 title "Gx" with lines lc rgb "red"
+# plot "< tail -n 100 log.readFlightcontrol" using 2 title "PWM" with lines lc rgb "blue"
+
+refresh
+reread

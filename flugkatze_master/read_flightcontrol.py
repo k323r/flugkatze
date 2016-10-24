@@ -22,6 +22,7 @@ if not os.path.isdir("./logs"):
 	try:
 		os.mkdir("./logs")
 	except:
+		print "could not create directory 'logs'"
 		exit()
 
 ## create timestamp

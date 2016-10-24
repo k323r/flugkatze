@@ -1,4 +1,6 @@
 #include <Wire.h> //Include the Wire.h library so we can communicate with the gyro.
+#include "MPU6050.h"
+
 
 #define THROTTLE_THRESHOLD 1150
 #define THROTTLE_MAX 1400
@@ -101,7 +103,7 @@ struct Flight_data {
     int yaw;
 } flight_data;
 
-char len_struct = sizeof(flight_data);
+
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Setup routine
@@ -110,10 +112,6 @@ void setup(){
 
     Serial.begin(BAUDRATE);
     Serial.print("init\n");
-
-    Serial.print("length of struct: ");
-    Serial.print(len_struct,DEC);
-    Serial.print("\n");
 
     Wire.begin();                                                //Start the I2C as master.
 

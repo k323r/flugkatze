@@ -1,4 +1,4 @@
-build-atmega328/flight_controller.o: flight_controller.ino \
+build-atmega328/mpu6050.o: mpu6050.ino \
  /usr/share/arduino/hardware/arduino/cores/arduino/Arduino.h \
  /usr/share/arduino/hardware/arduino/cores/arduino/binary.h \
  /usr/share/arduino/hardware/arduino/cores/arduino/WCharacter.h \
@@ -11,4 +11,5 @@ build-atmega328/flight_controller.o: flight_controller.ino \
  /usr/share/arduino/hardware/arduino/variants/standard/pins_arduino.h \
  /usr/share/arduino/libraries/Wire/Wire.h \
  /usr/share/arduino/hardware/arduino/cores/arduino/Stream.h \
- ../libs/MPU6050/MPU6050.h ../libs/i2cdevlib/Arduino/I2Cdev/I2Cdev.h
+ ../../libs/i2cdevlib/Arduino/I2Cdev/I2Cdev.h \
+ ../../libs/MPU6050/MPU6050.h

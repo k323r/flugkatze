@@ -30,7 +30,7 @@ RIGHT SIDE TRCV
     channel 4      <----- o ----->
     ROLL                  |
                           |
-*/                          
+*/
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //PID gain and limit settings
@@ -88,13 +88,13 @@ struct Flight_data {
     float ax;
     float ay;
     float az;
-    
+
     float temp;
-    
+
     float gx;
     float gy;
     float gz;
-    
+
     int throttle;
     int roll;
     int pitch;
@@ -150,7 +150,7 @@ void setup(){
         PORTD &= B00001111;                                        //Set digital poort 4, 5, 6 and 7 low.
         delay(3);                                                  //Wait 3 milliseconds before the next loop.
     }
-    
+
     //Now that we have 2000 measures, we need to devide by 2000 to get the average gyro offset.
     gyro_roll_cal /= N_SAMPLES;                                       //Divide the roll total by 2000.
     gyro_pitch_cal /= N_SAMPLES;                                      //Divide the pitch total by 2000.
@@ -171,7 +171,7 @@ void setup(){
 
     //Wait until the receiver is active and the throtle is set to the lower position.
     while(receiver_input_channel_2 < 900 || receiver_input_channel_2 > 1040 || receiver_input_channel_1 < 1400){
-      start ++;     
+      start ++;
                                                  //While waiting increment start whith every loop.
         //We don't want the esc's to be beeping annoyingly. So let's give them a 1000us puls while waiting for the receiver inputs.
         PORTD |= B11110000;                                        //Set digital poort 4, 5, 6 and 7 high.
@@ -196,7 +196,7 @@ void setup(){
 void loop(){
     //Let's get the current gyro data and scale it to degrees per second for the pid calculations.
     imu();
-  
+
     flight_data.throttle = receiver_input_channel_2;
     flight_data.roll = receiver_input_channel_4;
     flight_data.pitch = receiver_input_channel_3;
@@ -217,11 +217,11 @@ void loop(){
     //print_signals();
 
     //For starting the motors: throttle low and yaw left (step 1).
-    if(receiver_input_channel_2 < 1050 && receiver_input_channel_1 < 1090) {    
+    if(receiver_input_channel_2 < 1050 && receiver_input_channel_1 < 1090) {
         start = 1;
         Serial.print(" stage 1 ");
     }
-    
+
     //When yaw stick is back in the center position start the motors (step 2).
     if(start == 1 && receiver_input_channel_2 < 1050 && receiver_input_channel_1 > 1450){
         start = 2;
@@ -234,7 +234,7 @@ void loop(){
         pid_i_mem_yaw = 0;
         pid_last_yaw_d_error = 0;
     }
-    
+
     //Stopping the motors: throttle low and yaw right.
     if (start == 2 && receiver_input_channel_2 < 1050 && receiver_input_channel_1 > 1800) {
         start = 0;
@@ -244,7 +244,7 @@ void loop(){
     //The PID set point in degrees per second is determined by the roll receiver input.
     //In the case of deviding by 3 the max roll rate is aprox 164 degrees per second ( (500-8)/3 = 164d/s ).
     pid_roll_setpoint = 0;
-  
+
     //We need a little dead band of 16us for better results.
     if (receiver_input_channel_4 > 1508) {
         pid_roll_setpoint = (receiver_input_channel_4 - 1508)/3.0;
@@ -305,14 +305,14 @@ void loop(){
         if (throttle > THROTTLE_MAX) {
             throttle = THROTTLE_MAX;                                   //We need some room to keep full control at full throttle.
         }
-        
+
         // switched the signes brfore pid_output_roll!
         //    esc_1 = throttle - pid_output_pitch - pid_output_roll - pid_output_yaw; //Calculate the pulse for esc 1 (front-right - CCW)
         //    esc_2 = throttle + pid_output_pitch - pid_output_roll + pid_output_yaw; //Calculate the pulse for esc 2 (rear-right - CW)
         //    esc_3 = throttle + pid_output_pitch + pid_output_roll - pid_output_yaw; //Calculate the pulse for esc 3 (rear-left - CCW)
         //    esc_4 = throttle - pid_output_pitch + pid_output_roll + pid_output_yaw; //Calculate the pulse for esc 4 (front-left - CW)
         // old version
-        
+
         esc_1 = throttle - pid_output_pitch + pid_output_roll - pid_output_yaw; //Calculate the pulse for esc 1 (front-right - CCW)
         esc_2 = throttle + pid_output_pitch + pid_output_roll + pid_output_yaw; //Calculate the pulse for esc 2 (rear-right - CW)
         esc_3 = throttle + pid_output_pitch - pid_output_roll - pid_output_yaw; //Calculate the pulse for esc 3 (rear-left - CCW)
@@ -328,31 +328,31 @@ void loop(){
         if (esc_1 < THROTTLE_THRESHOLD) {
             esc_1 = THROTTLE_THRESHOLD;                                         //Keep the motors running.
         }
-        
+
         if (esc_2 < THROTTLE_THRESHOLD) {
             esc_2 = THROTTLE_THRESHOLD;                                         //Keep the motors running.
         }
-        
+
         if (esc_3 < THROTTLE_THRESHOLD) {
             esc_3 = THROTTLE_THRESHOLD;                                         //Keep the motors running.
         }
-        
+
         if (esc_4 < THROTTLE_THRESHOLD) {
             esc_4 = THROTTLE_THRESHOLD;                                         //Keep the motors running.
         }
-        
+
         if(esc_1 > THROTTLE_MAX) {
             esc_1 = THROTTLE_MAX;                                           //Limit the esc-1 pulse to 2000us.
         }
-        
+
         if(esc_2 > THROTTLE_MAX) {
             esc_2 = THROTTLE_MAX;                                           //Limit the esc-2 pulse to 2000us.
         }
-        
+
         if(esc_3 > THROTTLE_MAX) {
             esc_3 = THROTTLE_MAX;                                           //Limit the esc-3 pulse to 2000us.
         }
-        
+
         if(esc_4 > THROTTLE_MAX) {
             esc_4 = THROTTLE_MAX;                                           //Limit the esc-4 pulse to 2000us.
         }
@@ -368,7 +368,7 @@ void loop(){
     //All the information for controlling the motor's is available.
     //The refresh rate is 250Hz. That means the esc's need there pulse every 4ms.
     while(micros() - loop_timer < 4000);                                      //We wait until 4000us are passed.
-    
+
     loop_timer = micros();                                                    //Set the timer for the next loop.
 
     PORTD |= B11110000;                                                       //Set digital outputs 4,5,6 and 7 high.
@@ -378,21 +378,21 @@ void loop(){
     timer_channel_4 = esc_4 + loop_timer;                                     //Calculate the time of the faling edge of the esc-4 pulse.
 
     while(PORTD >= 16){                                                       //Stay in this loop until output 4,5,6 and 7 are low.
-        
+
         esc_loop_timer = micros();                                              //Read the current time.
-        
+
         if(timer_channel_1 <= esc_loop_timer) {
             PORTD &= B11101111;                //Set digital output 4 to low if the time is expired.
         }
-        
+
         if(timer_channel_2 <= esc_loop_timer) {
             PORTD &= B11011111;                //Set digital output 5 to low if the time is expired.
         }
-        
+
         if(timer_channel_3 <= esc_loop_timer) {
             PORTD &= B10111111;                //Set digital output 6 to low if the time is expired.
         }
-        
+
         if(timer_channel_4 <= esc_loop_timer) {
             PORTD &= B01111111;                //Set digital output 7 to low if the time is expired.
         }
@@ -414,7 +414,7 @@ ISR(PCINT0_vect){
         last_channel_1 = 0;                                        //Remember current input state
         receiver_input_channel_1 = current_time - timer_1;         //Channel 1 is current_time - timer_1
     }
-    
+
     //Channel 2=========================================
     if(PINB & B00000010 ){                                       //Is input 9 high?
         if(last_channel_2 == 0){                                   //Input 9 changed from 0 to 1
@@ -425,7 +425,7 @@ ISR(PCINT0_vect){
         last_channel_2 = 0;                                        //Remember current input state
         receiver_input_channel_2 = current_time - timer_2;         //Channel 2 is current_time - timer_2
     }
-  
+
     //Channel 3=========================================
     if(PINB & B00000100 ){                                       //Is input 10 high?
         if(last_channel_3 == 0){                                   //Input 10 changed from 0 to 1
@@ -436,7 +436,7 @@ ISR(PCINT0_vect){
         last_channel_3 = 0;                                        //Remember current input state
         receiver_input_channel_3 = current_time - timer_3;         //Channel 3 is current_time - timer_3
     }
-    
+
     //Channel 4=========================================
     if(PINB & B00001000 ){                                       //Is input 11 high?
         if(last_channel_4 == 0){                                   //Input 11 changed from 0 to 1
@@ -456,7 +456,7 @@ void imu () {
     Wire.write(0x3B);  // starting with register 0x3B (ACCEL_XOUT_H)
     Wire.endTransmission(false);
     Wire.requestFrom(MPUADDR, 14, true);  // request a total of 14 registers
-    flight_data.ax = (Wire.read() << 8) | Wire.read();  // 0x3B (ACCEL_XOUT_H) & 0x3C (ACCEL_XOUT_L)    
+    flight_data.ax = (Wire.read() << 8) | Wire.read();  // 0x3B (ACCEL_XOUT_H) & 0x3C (ACCEL_XOUT_L)
     flight_data.ay = (Wire.read() << 8) | Wire.read();  // 0x3D (ACCEL_YOUT_H) & 0x3E (ACCEL_YOUT_L)
     flight_data.az = (Wire.read() << 8) | Wire.read();  // 0x3F (ACCEL_ZOUT_H) & 0x40 (ACCEL_ZOUT_L)
 
@@ -469,7 +469,7 @@ void imu () {
     if (cal_int == N_SAMPLES) {
         flight_data.gx -= gyro_roll_cal;
         flight_data.gy -= gyro_pitch_cal;
-        gyro_yaw -= gyro_yaw_cal;
+        flight_data.gz -= gyro_yaw_cal;
     }
 }
 
@@ -492,7 +492,7 @@ void calculate_pid(){
         pid_i_mem_roll = pid_max_roll * -1;
     }
 
-    pid_output_roll = (( pid_p_gain_roll * pid_error_temp ) + pid_i_mem_roll + ( pid_d_gain_roll * (pid_error_temp - pid_last_roll_d_error))) * -1; // maybe *-1 ? 
+    pid_output_roll = (( pid_p_gain_roll * pid_error_temp ) + pid_i_mem_roll + ( pid_d_gain_roll * (pid_error_temp - pid_last_roll_d_error))) * -1; // maybe *-1 ?
     // old version
     if(pid_output_roll > pid_max_roll) {
         pid_output_roll = pid_max_roll;

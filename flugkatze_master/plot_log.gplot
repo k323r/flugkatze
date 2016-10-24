@@ -1,0 +1,17 @@
+#!/usr/bin/gnuplot -rv
+
+set terminal pngcairo background "#ffffff" fontscale 1 dashed size 1920, 1080
+
+set output './logs/signals.png'
+
+set multiplot layout 4, 2 title "Flugkatze Telemetrie" font ",14"
+set tmargin 2
+
+plot inputfile using 8 title "Throttle" with lines lc rgb "red"
+plot inputfile using 9 title "Roll" with lines lc rgb "red"
+plot inputfile using 10 title "Pitch" with lines lc rgb "blue"
+plot inputfile using 11 title "Yaw" with lines lc rgb "blue"
+plot inputfile using 5 title "Gx" with lines lc rgb "green"
+plot inputfile  using 6 title "Gy" with lines lc rgb "green"
+plot inputfile  using 7 title "Gz" with lines lc rgb "green"
+plot inputfile  using 3 title "Az" with lines lc rgb "green"

@@ -14,7 +14,7 @@ void calculate_pid();
 /*
 ### channel:
 
-LEFT SIDE TRCV
+LEFT SIDE TX
                           ^
                           |  channel 2
                           |  THROTTLE
@@ -23,7 +23,7 @@ LEFT SIDE TRCV
                           |
                           v
 
-RIGHT SIDE TRCV
+RIGHT SIDE TX
                           ^
                           |  channel 3
                           |  PITCH
@@ -35,9 +35,9 @@ RIGHT SIDE TRCV
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //PID gain and limit settings
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-float pid_p_gain_roll = 1.2;               //Gain setting for the roll P-controller (1.3)
-float pid_i_gain_roll = 0.05;              //Gain setting for the roll I-controller (0.3)
-float pid_d_gain_roll = 5;                //Gain setting for the roll D-controller (15)
+float pid_p_gain_roll = 1.0;               //Gain setting for the roll P-controller (1.3)
+float pid_i_gain_roll = 0.0;              //Gain setting for the roll I-controller (0.3)
+float pid_d_gain_roll = 0.0;                //Gain setting for the roll D-controller (15)
 int pid_max_roll = 100;                    //Maximum output of the PID-controller (+/-)
 
 float pid_p_gain_pitch = pid_p_gain_roll;  //Gain setting for the pitch P-controller.
@@ -45,9 +45,9 @@ float pid_i_gain_pitch = pid_i_gain_roll;  //Gain setting for the pitch I-contro
 float pid_d_gain_pitch = pid_d_gain_roll;  //Gain setting for the pitch D-controller.
 int pid_max_pitch = pid_max_roll;          //Maximum output of the PID-controller (+/-)
 
-float pid_p_gain_yaw = 1.5;                //Gain setting for the pitch P-controller. //4.0
-float pid_i_gain_yaw = 0.02;               //Gain setting for the pitch I-controller. //0.02
-float pid_d_gain_yaw = 5;                //Gain setting for the pitch D-controller.
+float pid_p_gain_yaw = 1.0;                //Gain setting for the pitch P-controller. //4.0
+float pid_i_gain_yaw = 0.0;               //Gain setting for the pitch I-controller. //0.02
+float pid_d_gain_yaw = 0.0;                //Gain setting for the pitch D-controller.
 int pid_max_yaw = 100;                     //Maximum output of the PID-controller (+/-)
 
 float pid_error_temp;
@@ -210,9 +210,14 @@ void loop(){
     Serial.write((uint8_t *) &aux, len_struct);  // send the actual data
     Serial.write('E');                    // end byte to ensure data integrity
 
-    gyro_roll_input = (gyro_roll_input * 0.8) + ((flight_data.gx / 57.14286) * 0.2);            //Gyro pid input is deg/sec.
-    gyro_pitch_input = (gyro_pitch_input * 0.8) + ((flight_data.gy / 57.14286) * 0.2);         //Gyro pid input is deg/sec.
-    gyro_yaw_input = (gyro_yaw_input * 0.8) + ((flight_data.gz / 57.14286) * 0.2);               //Gyro pid input is deg/sec.
+    // gyro_roll_input = (gyro_roll_input * 0.8) + ((flight_data.gx / 57.14286) * 0.2);            //Gyro pid input is deg/sec.
+    // gyro_pitch_input = (gyro_pitch_input * 0.8) + ((flight_data.gy / 57.14286) * 0.2);         //Gyro pid input is deg/sec.
+    // gyro_yaw_input = (gyro_yaw_input * 0.8) + ((flight_data.gz / 57.14286) * 0.2);               //Gyro pid input is deg/sec.
+
+	gyro_roll_input = 0.0;           //Gyro pid input is deg/sec.
+    gyro_pitch_input = 0.0;         //Gyro pid input is deg/sec.
+    gyro_yaw_input = 0.0;               //Gyro pid input is deg/sec.
+
 
     //print_signals();
 
@@ -252,9 +257,6 @@ void loop(){
         pid_roll_setpoint = (receiver_input_channel_4 - 1492)/3.0;
     }
 
-    Serial.print("roll setpoint: ");
-    Serial.print(pid_roll_setpoint);
-    Serial.print("\n");
 
     //  if(receiver_input_channel_4 > 1508) pid_roll_setpoint = (receiver_input_channel_4 - 1508)/3.0;
     //  else if(receiver_input_channel_4 < 1492) pid_roll_setpoint = (receiver_input_channel_4 - 1492)/3.0;

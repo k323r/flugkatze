@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import serial, time, struct
+import serial, time, struct, os
 
 # create a serial object and connect it to /dev/ttyUSB0
 
@@ -18,7 +18,21 @@ except Exception, e:
     print "error opening serial port /dev/ttyUSB0: ", str(e)
     exit()
 
-log = open('./log.readFlightcontrol', 'w+')
+if not os.path.isdir("./logs"):
+	try:
+		os.mkdir("./logs")
+	except:
+		exit()
+
+## create timestamp
+timestring = time.strftime("%Y%m%d-%H%M%S")
+
+# log_name = './logs/' + timestring + '.log'
+log_name = './logs/telemetry.log'
+
+log = open(log_name, 'w+')
+
+log.writelines("# ax ay az T gx gy gz throttle roll pitch yaw\n")
 
 if flugkatze_flightcontrol.isOpen():
     flugkatze_flightcontrol.flushInput()
@@ -48,6 +62,7 @@ FORMAT_STR = "fffffffhhhh"
 size_struct = struct.calcsize(FORMAT_STR)
 print size_struct
 
+counter = 0
 
     # for binary data (later use)
 while True:
@@ -56,9 +71,12 @@ while True:
         data = flugkatze_flightcontrol.read(size_struct)
         Byte = flugkatze_flightcontrol.read(1)
         if Byte == 'E':
-            msg = str(struct.unpack(FORMAT_STR, data)).replace("(", "").replace(")", "")
-            print (msg)
-            log.writelines(msg + "\n")
+			msg = str(struct.unpack(FORMAT_STR, data)).replace("(", "").replace(")", "")
+			counter += 1
+			if counter > 50:
+				print (msg)
+				counter = 0
+			log.writelines(msg + "\n")
 #    while True:
 #        msg = flugkatze_flightcontrol.readline()
 #        print "flugkatze_flightcontrol: " + msg

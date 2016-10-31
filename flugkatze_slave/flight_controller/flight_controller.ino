@@ -1,4 +1,5 @@
 #include <Wire.h> //Include the Wire.h library so we can communicate with the gyro.
+#include "I2Cdev.h"
 #include "MPU6050.h"
 
 
@@ -7,11 +8,14 @@
 #define N_SAMPLES 1000
 #define MPUADDR 0x68
 #define BAUDRATE 115200
+#define SCALE_ACC_2G 16382.0
+#define SCALE_GYRO_250 131.0
 
 // PROTOTYPES
-void imu ();
+void get_imu();
 void calculate_pid();
 
+MPU6050 imu;
 
 /*
 ### channel:
@@ -79,7 +83,7 @@ int cal_int, start;
 int throttle, battery_voltage;
 unsigned long loop_timer;
 double gyro_pitch, gyro_roll, gyro_yaw;
-double gyro_roll_cal, gyro_pitch_cal, gyro_yaw_cal;
+int8_t gyro_roll_cal, gyro_pitch_cal, gyro_yaw_cal, acc_x_cal, acc_y_cal, acc_z_cal;
 byte highByte, lowByte;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -103,8 +107,6 @@ struct Flight_data {
     int yaw;
 } flight_data;
 
-
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Setup routine
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -123,41 +125,18 @@ void setup(){
     digitalWrite(12,HIGH);                                       //Turn on the warning led.
     delay(250);                                                 //Wait 2 second befor continuing.
 
-    // wake up the imu
-    Wire.begin();
-    Wire.beginTransmission(MPUADDR);
-    Wire.write(0x6B);  // PWR_MGMT_1 register
-    Wire.write(0);     // set to zero (wakes up the MPU-6050)
-    Wire.endTransmission(true);
-    delay(250);                                                  //Give the gyro time to start.
+	imu.initialize();
 
-    Serial.print("starting gyro calibration\n");
-
-    //Let's take multiple gyro data samples so we can determine the average gyro offset (calibration).
-    for (cal_int = 0; cal_int < N_SAMPLES ; cal_int ++){              //Take 2000 readings for calibration.
-        if(cal_int % 15 == 0) {
-            digitalWrite(12, !digitalRead(12));   //Change the led status to indicate calibration.
-        }
-        imu();                                           //Read the gyro output.
-        gyro_roll_cal += flight_data.gx;                                //Ad roll value to gyro_roll_cal.
-        gyro_pitch_cal += flight_data.gy;                              //Ad pitch value to gyro_pitch_cal.
-        gyro_yaw_cal += flight_data.gz;                                  //Ad yaw value to gyro_yaw_cal.
-        //We don't want the esc's to be beeping annoyingly. So let's give them a 1000us puls while calibrating the gyro.
-        PORTD |= B11110000;                                        //Set digital poort 4, 5, 6 and 7 high.
-        delayMicroseconds(1000);                                   //Wait 1000us.
-        PORTD &= B00001111;                                        //Set digital poort 4, 5, 6 and 7 low.
-        delay(3);                                                  //Wait 3 milliseconds before the next loop.
-    }
+	Serial.println("testing IMU communication");
+	Serial.println(imu.testConnection() ? "connection established" : "connection failed");
 
     //Now that we have 2000 measures, we need to devide by 2000 to get the average gyro offset.
-    gyro_roll_cal /= N_SAMPLES;                                       //Divide the roll total by 2000.
-    gyro_pitch_cal /= N_SAMPLES;                                      //Divide the pitch total by 2000.
-    gyro_yaw_cal /= N_SAMPLES;                                        //Divide the yaw total by 2000.
-
-    Serial.print("roll offset: ");
-    Serial.print(gyro_roll_cal);
-
-    Serial.print("done calibrating gyro\n");
+    gyro_roll_cal = imu.getXGyroOffset();                                       //Divide the roll total by 2000.
+    gyro_pitch_cal = imu.getYGyroOffset();                                      //Divide the pitch total by 2000.
+    gyro_yaw_cal = imu.getZGyroOffset();                                        //Divide the yaw total by 2000.
+	acc_x_cal = imu.getXAccelOffset();
+	acc_y_cal = imu.getYAccelOffset();
+	acc_z_cal = imu.getZAccelOffset();
 
     PCICR |= (1 << PCIE0);                                       //Set PCIE0 to enable PCMSK0 scan.
     PCMSK0 |= (1 << PCINT0);                                     //Set PCINT0 (digital input 8) to trigger an interrupt on state change.
@@ -193,7 +172,7 @@ void setup(){
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void loop(){
     //Let's get the current gyro data and scale it to degrees per second for the pid calculations.
-    imu();
+    get_imu();
 
     flight_data.throttle = receiver_input_channel_2;
     flight_data.roll = receiver_input_channel_4;
@@ -451,26 +430,16 @@ ISR(PCINT0_vect){
 
 
 
-void imu () {
-    Wire.beginTransmission(MPUADDR);
-    Wire.write(0x3B);  // starting with register 0x3B (ACCEL_XOUT_H)
-    Wire.endTransmission(false);
-    Wire.requestFrom(MPUADDR, 14, true);  // request a total of 14 registers
-    flight_data.ax = (Wire.read() << 8) | Wire.read();  // 0x3B (ACCEL_XOUT_H) & 0x3C (ACCEL_XOUT_L)
-    flight_data.ay = (Wire.read() << 8) | Wire.read();  // 0x3D (ACCEL_YOUT_H) & 0x3E (ACCEL_YOUT_L)
-    flight_data.az = (Wire.read() << 8) | Wire.read();  // 0x3F (ACCEL_ZOUT_H) & 0x40 (ACCEL_ZOUT_L)
+void get_imu () {
 
-    flight_data.temp = (Wire.read() << 8) | Wire.read();  // 0x41 (TEMP_OUT_H) & 0x42 (TEMP_OUT_L)
+	flight_data.gx = (float) ( (imu.getRotationX() - gyro_roll_cal) / SCALE_GYRO_250 );
+	flight_data.gy = (float) ( (imu.getRotationY() - gyro_pitch_cal) / SCALE_GYRO_250 );
+	flight_data.gz = (float) ( (imu.getRotationZ() - gyro_yaw_cal) / SCALE_GYRO_250 );
 
-    flight_data.gx = (Wire.read() << 8) | Wire.read();  // 0x43 (GYRO_XOUT_H) & 0x44 (GYRO_XOUT_L)
-    flight_data.gy = (Wire.read() << 8) | Wire.read();  // 0x45 (GYRO_YOUT_H) & 0x46 (GYRO_YOUT_L)
-    flight_data.gz = (Wire.read() << 8) | Wire.read();  // 0x47 (GYRO_ZOUT_H) & 0x48 (GYRO_ZOUT_L)
+	flight_data.ax = (float) ( (imu.getAccelerationX() - acc_x_cal) / SCALE_ACC_2G );
+	flight_data.ay = (float) ( (imu.getAccelerationY() - acc_y_cal) / SCALE_ACC_2G );
+	flight_data.az = (float) ( (imu.getAccelerationZ() - acc_z_cal) / SCALE_ACC_2G );
 
-    if (cal_int == N_SAMPLES) {
-        flight_data.gx -= gyro_roll_cal;
-        flight_data.gy -= gyro_pitch_cal;
-        flight_data.gz -= gyro_yaw_cal;
-    }
 }
 
 

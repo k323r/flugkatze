@@ -8,7 +8,7 @@
 #define N_SAMPLES 1000
 #define MPUADDR 0x68
 #define BAUDRATE 115200
-#define SCALE_ACC_2G 16382.0
+#define SCALE_ACC_2G 16384.0
 #define SCALE_GYRO_250 131.0
 
 // PROTOTYPES
@@ -41,10 +41,10 @@ RIGHT SIDE TX
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //PID gain and limit settings
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-float pid_p_gain_roll = 1.0;               //Gain setting for the roll P-controller (1.3)
-float pid_i_gain_roll = 0.0;              //Gain setting for the roll I-controller (0.3)
-float pid_d_gain_roll = 0.0;                //Gain setting for the roll D-controller (15)
-int pid_max_roll = 100;                    //Maximum output of the PID-controller (+/-)
+float pid_p_gain_roll = 1.3;               //Gain setting for the roll P-controller (1.3)
+float pid_i_gain_roll = 0.3;              //Gain setting for the roll I-controller (0.3)
+float pid_d_gain_roll = 0.5;                //Gain setting for the roll D-controller (15)
+int pid_max_roll = 360;                    //Maximum output of the PID-controller (+/-)
 
 float pid_p_gain_pitch = pid_p_gain_roll;  //Gain setting for the pitch P-controller.
 float pid_i_gain_pitch = pid_i_gain_roll;  //Gain setting for the pitch I-controller.
@@ -54,7 +54,7 @@ int pid_max_pitch = pid_max_roll;          //Maximum output of the PID-controlle
 float pid_p_gain_yaw = 1.0;                //Gain setting for the pitch P-controller. //4.0
 float pid_i_gain_yaw = 0.0;               //Gain setting for the pitch I-controller. //0.02
 float pid_d_gain_yaw = 0.0;                //Gain setting for the pitch D-controller.
-int pid_max_yaw = 100;                     //Maximum output of the PID-controller (+/-)
+int pid_max_yaw = 360;                     //Maximum output of the PID-controller (+/-)
 
 float pid_error_temp;
 float pid_i_mem_roll, pid_roll_setpoint, gyro_roll_input, pid_output_roll, pid_last_roll_d_error;
@@ -130,6 +130,8 @@ void setup(){
 	Serial.println("testing IMU communication");
 	Serial.println(imu.testConnection() ? "connection established" : "connection failed");
 
+	imu.setFullScaleAccelRange(0);
+
     //Now that we have 2000 measures, we need to devide by 2000 to get the average gyro offset.
     gyro_roll_cal = imu.getXGyroOffset();                                       //Divide the roll total by 2000.
     gyro_pitch_cal = imu.getYGyroOffset();                                      //Divide the pitch total by 2000.
@@ -187,13 +189,17 @@ void loop(){
     Serial.write((uint8_t *) &aux, len_struct);  // send the actual data
     Serial.write('E');                    // end byte to ensure data integrity
 
+    gyro_roll_input = (gyro_roll_input * 0.6) + (flight_data.gx * 0.4);            //Gyro pid input is deg/sec.
+    gyro_pitch_input = (gyro_pitch_input * 0.6) + (flight_data.gy * 0.4);         //Gyro pid input is deg/sec.
+    gyro_yaw_input = (gyro_yaw_input * 0.6) + (flight_data.gz * 0.4);               //Gyro pid input is deg/sec.
+
     // gyro_roll_input = (gyro_roll_input * 0.8) + ((flight_data.gx / 57.14286) * 0.2);            //Gyro pid input is deg/sec.
     // gyro_pitch_input = (gyro_pitch_input * 0.8) + ((flight_data.gy / 57.14286) * 0.2);         //Gyro pid input is deg/sec.
     // gyro_yaw_input = (gyro_yaw_input * 0.8) + ((flight_data.gz / 57.14286) * 0.2);               //Gyro pid input is deg/sec.
 
-	gyro_roll_input = 0.0;           //Gyro pid input is deg/sec.
-    gyro_pitch_input = 0.0;         //Gyro pid input is deg/sec.
-    gyro_yaw_input = 0.0;               //Gyro pid input is deg/sec.
+	// gyro_roll_input = 0.0;           //Gyro pid input is deg/sec.
+    // gyro_pitch_input = 0.0;         //Gyro pid input is deg/sec.
+    // gyro_yaw_input = 0.0;               //Gyro pid input is deg/sec.
 
 
     //print_signals();

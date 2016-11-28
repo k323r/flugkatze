@@ -4,7 +4,7 @@
 
 
 #define THROTTLE_THRESHOLD 1150
-#define THROTTLE_MAX 1400
+#define THROTTLE_MAX 1500
 #define N_SAMPLES 1000
 #define MPUADDR 0x68
 #define BAUDRATE 115200
@@ -41,20 +41,24 @@ RIGHT SIDE TX
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //PID gain and limit settings
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-float pid_p_gain_roll = 1.3;               //Gain setting for the roll P-controller (1.3)
-float pid_i_gain_roll = 0.3;              //Gain setting for the roll I-controller (0.3)
-float pid_d_gain_roll = 0.5;                //Gain setting for the roll D-controller (15)
-int pid_max_roll = 360;                    //Maximum output of the PID-controller (+/-)
+
+// for p_gain roll und pitch: 6.0
+// for d_gain roll und pitch: 10.0
+
+float pid_p_gain_roll = 4.0;               //Gain setting for the roll P-controller (1.3)
+float pid_i_gain_roll = 0.005;              //Gain setting for the roll I-controller (0.3)
+float pid_d_gain_roll = 2;                //Gain setting for the roll D-controller (15)
+int pid_max_roll = 250;                    //Maximum output of the PID-controller (+/-)
 
 float pid_p_gain_pitch = pid_p_gain_roll;  //Gain setting for the pitch P-controller.
 float pid_i_gain_pitch = pid_i_gain_roll;  //Gain setting for the pitch I-controller.
 float pid_d_gain_pitch = pid_d_gain_roll;  //Gain setting for the pitch D-controller.
 int pid_max_pitch = pid_max_roll;          //Maximum output of the PID-controller (+/-)
 
-float pid_p_gain_yaw = 1.0;                //Gain setting for the pitch P-controller. //4.0
+float pid_p_gain_yaw = 6.0;                //Gain setting for the pitch P-controller. //4.0
 float pid_i_gain_yaw = 0.0;               //Gain setting for the pitch I-controller. //0.02
 float pid_d_gain_yaw = 0.0;                //Gain setting for the pitch D-controller.
-int pid_max_yaw = 360;                     //Maximum output of the PID-controller (+/-)
+int pid_max_yaw = 500;                     //Maximum output of the PID-controller (+/-)
 
 float pid_error_temp;
 float pid_i_mem_roll, pid_roll_setpoint, gyro_roll_input, pid_output_roll, pid_last_roll_d_error;
@@ -133,12 +137,28 @@ void setup(){
 	imu.setFullScaleAccelRange(0);
 
     //Now that we have 2000 measures, we need to devide by 2000 to get the average gyro offset.
-    gyro_roll_cal = imu.getXGyroOffset();                                       //Divide the roll total by 2000.
-    gyro_pitch_cal = imu.getYGyroOffset();                                      //Divide the pitch total by 2000.
-    gyro_yaw_cal = imu.getZGyroOffset();                                        //Divide the yaw total by 2000.
+   // gyro_roll_cal = imu.getXGyroOffset();                                       //Divide the roll total by 2000.
+    for (int i = 0; i < N_SAMPLES; i++) {
+		gyro_roll_cal += imu.getRotationX();
+		gyro_pitch_cal += imu.getRotationY();
+		gyro_yaw_cal += imu.getRotationZ();
+	}
+
+	gyro_roll_cal /= N_SAMPLES;
+	gyro_pitch_cal /= N_SAMPLES;
+	gyro_yaw_cal /= N_SAMPLES;
+
 	acc_x_cal = imu.getXAccelOffset();
 	acc_y_cal = imu.getYAccelOffset();
 	acc_z_cal = imu.getZAccelOffset();
+/*
+    gyro_roll_cal = 0;                                       //Divide the roll total by 2000.
+    gyro_pitch_cal = 0;                                      //Divide the pitch total by 2000.
+    gyro_yaw_cal = 0;                                        //Divide the yaw total by 2000.
+	acc_x_cal = 0;
+	acc_y_cal = 0;
+	acc_z_cal = 0;
+*/
 
     PCICR |= (1 << PCIE0);                                       //Set PCIE0 to enable PCMSK0 scan.
     PCMSK0 |= (1 << PCINT0);                                     //Set PCINT0 (digital input 8) to trigger an interrupt on state change.
@@ -181,6 +201,7 @@ void loop(){
     flight_data.pitch = receiver_input_channel_3;
     flight_data.yaw = receiver_input_channel_1;
 
+/*
     // send telemetry (stored in the flight_data struct)
     char len_struct = sizeof(flight_data);
     char aux[len_struct];                 // auxiliary buffer used to serialize the struct -> put init before loop!!!!!!!
@@ -188,10 +209,10 @@ void loop(){
     Serial.write('S');                    // starting byte to ensure data integrity
     Serial.write((uint8_t *) &aux, len_struct);  // send the actual data
     Serial.write('E');                    // end byte to ensure data integrity
-
-    gyro_roll_input = (gyro_roll_input * 0.6) + (flight_data.gx * 0.4);            //Gyro pid input is deg/sec.
-    gyro_pitch_input = (gyro_pitch_input * 0.6) + (flight_data.gy * 0.4);         //Gyro pid input is deg/sec.
-    gyro_yaw_input = (gyro_yaw_input * 0.6) + (flight_data.gz * 0.4);               //Gyro pid input is deg/sec.
+*/
+    gyro_roll_input = (gyro_roll_input * 0.3) + (flight_data.gx * 0.7);            //Gyro pid input is deg/sec.
+    gyro_pitch_input = (gyro_pitch_input * 0.3) + (flight_data.gy * 0.7);         //Gyro pid input is deg/sec.
+    gyro_yaw_input = (gyro_yaw_input * 0.3) + (flight_data.gz * 0.7);               //Gyro pid input is deg/sec.
 
     // gyro_roll_input = (gyro_roll_input * 0.8) + ((flight_data.gx / 57.14286) * 0.2);            //Gyro pid input is deg/sec.
     // gyro_pitch_input = (gyro_pitch_input * 0.8) + ((flight_data.gy / 57.14286) * 0.2);         //Gyro pid input is deg/sec.
@@ -258,11 +279,11 @@ void loop(){
     //In the case of deviding by 3 the max yaw rate is aprox 164 degrees per second ( (500-8)/3 = 164d/s ).
     pid_yaw_setpoint = 0;
     //We need a little dead band of 16us for better results.
-    if(receiver_input_channel_1 > 1050){ //Do not yaw when turning off the motors.
+    if(receiver_input_channel_2 > 1050){ //Do not yaw when turning off the motors.
         if(receiver_input_channel_1 > 1508) {
-            pid_yaw_setpoint = (receiver_input_channel_1 - 1508)/3.0;
+            pid_yaw_setpoint = ((receiver_input_channel_1 - 1508)/3.0) *-1.0;
         } else if(receiver_input_channel_1 < 1492) {
-            pid_yaw_setpoint = (receiver_input_channel_1 - 1492)/3.0;
+            pid_yaw_setpoint = ((receiver_input_channel_1 - 1492)/3.0) *-1.0;
         }
     }
     //PID inputs are known. So we can calculate the pid output.
@@ -290,19 +311,17 @@ void loop(){
         if (throttle > THROTTLE_MAX) {
             throttle = THROTTLE_MAX;                                   //We need some room to keep full control at full throttle.
         }
-
-        // switched the signes brfore pid_output_roll!
-        //    esc_1 = throttle - pid_output_pitch - pid_output_roll - pid_output_yaw; //Calculate the pulse for esc 1 (front-right - CCW)
-        //    esc_2 = throttle + pid_output_pitch - pid_output_roll + pid_output_yaw; //Calculate the pulse for esc 2 (rear-right - CW)
-        //    esc_3 = throttle + pid_output_pitch + pid_output_roll - pid_output_yaw; //Calculate the pulse for esc 3 (rear-left - CCW)
-        //    esc_4 = throttle - pid_output_pitch + pid_output_roll + pid_output_yaw; //Calculate the pulse for esc 4 (front-left - CW)
-        // old version
-
+/*
         esc_1 = throttle - pid_output_pitch + pid_output_roll - pid_output_yaw; //Calculate the pulse for esc 1 (front-right - CCW)
         esc_2 = throttle + pid_output_pitch + pid_output_roll + pid_output_yaw; //Calculate the pulse for esc 2 (rear-right - CW)
         esc_3 = throttle + pid_output_pitch - pid_output_roll - pid_output_yaw; //Calculate the pulse for esc 3 (rear-left - CCW)
         esc_4 = throttle - pid_output_pitch - pid_output_roll + pid_output_yaw; //Calculate the pulse for esc 4 (front-left - CW)
 
+*/
+        esc_1 = throttle - pid_output_pitch + pid_output_roll + pid_output_yaw; //Calculate the pulse for esc 1 (front-right - CCW)
+        esc_2 = throttle + pid_output_pitch + pid_output_roll - pid_output_yaw; //Calculate the pulse for esc 2 (rear-right - CW)
+        esc_3 = throttle + pid_output_pitch - pid_output_roll + pid_output_yaw; //Calculate the pulse for esc 3 (rear-left - CCW)
+        esc_4 = throttle - pid_output_pitch - pid_output_roll - pid_output_yaw; //Calculate the pulse for esc 4 (front-left - CW)
         //    if (battery_voltage < 1240 && battery_voltage > 800){                   //Is the battery connected?
         //      esc_1 += esc_1 * ((1240 - battery_voltage)/(float)3500);              //Compensate the esc-1 pulse for voltage drop.
         //      esc_2 += esc_2 * ((1240 - battery_voltage)/(float)3500);              //Compensate the esc-2 pulse for voltage drop.
@@ -458,7 +477,7 @@ void calculate_pid(){
 ///////////////////////////////////////////////////////
 ///////// ROLL calculations
 ///////////////////////////////////////////////////////
-    pid_error_temp = gyro_roll_input - pid_roll_setpoint;
+    pid_error_temp = gyro_roll_input - pid_roll_setpoint;	// -> gyro_roll_input = 0.6 * gyro_roll_input + 0.4 * flight_data.gx
     pid_i_mem_roll += pid_i_gain_roll * pid_error_temp;
 
     if(pid_i_mem_roll > pid_max_roll) {
@@ -467,7 +486,7 @@ void calculate_pid(){
         pid_i_mem_roll = pid_max_roll * -1;
     }
 
-    pid_output_roll = (( pid_p_gain_roll * pid_error_temp ) + pid_i_mem_roll + ( pid_d_gain_roll * (pid_error_temp - pid_last_roll_d_error))) * -1; // maybe *-1 ?
+    pid_output_roll = (( pid_p_gain_roll * pid_error_temp ) + pid_i_mem_roll + ( pid_d_gain_roll * (pid_error_temp - pid_last_roll_d_error))) * -1.0; // maybe *-1 ?
     // old version
     if(pid_output_roll > pid_max_roll) {
         pid_output_roll = pid_max_roll;
@@ -489,7 +508,8 @@ void calculate_pid(){
     }
 
     pid_output_pitch = (( pid_p_gain_pitch * pid_error_temp )  + pid_i_mem_pitch + ( pid_d_gain_pitch * (pid_error_temp - pid_last_pitch_d_error)));
-    if(pid_output_pitch > pid_max_pitch) {
+    
+	if(pid_output_pitch > pid_max_pitch) {
         pid_output_pitch = pid_max_pitch;
     } else if(pid_output_pitch < (pid_max_pitch * -1)) {
         pid_output_pitch = pid_max_pitch * -1;
@@ -509,7 +529,8 @@ void calculate_pid(){
     }
 
     pid_output_yaw = (( pid_p_gain_yaw * pid_error_temp ) + pid_i_mem_yaw + ( pid_d_gain_yaw * (pid_error_temp - pid_last_yaw_d_error)));
-    if(pid_output_yaw > pid_max_yaw) {
+    
+	if(pid_output_yaw > pid_max_yaw) {
         pid_output_yaw = pid_max_yaw;
     } else if(pid_output_yaw < pid_max_yaw * -1) {
         pid_output_yaw = pid_max_yaw * -1;

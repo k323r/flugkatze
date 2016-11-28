@@ -5,25 +5,25 @@ unsigned long timer_1, timer_2, timer_3, timer_4;
 
 //Subroutine for displaying the receiver signals
 void print_signals(){
-  Serial.print("Roll:");
+  Serial.print("YAW:");
   if(receiver_input_channel_1 - 1480 < 0)Serial.print("<<<");
   else if(receiver_input_channel_1 - 1520 > 0)Serial.print(">>>");
   else Serial.print("-+-");
   Serial.print(receiver_input_channel_1);
   
-  Serial.print("  Nick:");
+  Serial.print("  GAS:");
   if(receiver_input_channel_2 - 1480 < 0)Serial.print("^^^");
   else if(receiver_input_channel_2 - 1520 > 0)Serial.print("vvv");
   else Serial.print("-+-");
   Serial.print(receiver_input_channel_2);
   
-  Serial.print("  Gas:");
+  Serial.print("  PITCH:");
   if(receiver_input_channel_3 - 1480 < 0)Serial.print("vvv");
   else if(receiver_input_channel_3 - 1520 > 0)Serial.print("^^^");
   else Serial.print("-+-");
   Serial.print(receiver_input_channel_3);
   
-  Serial.print("  Yaw:");
+  Serial.print("  ROLL:");
   if(receiver_input_channel_4 - 1480 < 0)Serial.print("<<<");
   else if(receiver_input_channel_4 - 1520 > 0)Serial.print(">>>");
   else Serial.print("-+-");

@@ -1,6 +1,7 @@
 #include <Wire.h> //Include the Wire.h library so we can communicate with the gyro.
 #include "I2Cdev.h"
 #include "MPU6050.h"
+#include "RunningAverage.h"
 
 #define SCALE_2G 16384.0
 #define SCALE_4G 8192.0

@@ -1,7 +1,7 @@
 #include <Wire.h> //Include the Wire.h library so we can communicate with the gyro.
 #include "I2Cdev.h"
 #include "MPU6050.h"
-
+#include "ExponentialFilter2.h"
 
 #define THROTTLE_THRESHOLD 1150
 #define THROTTLE_MAX 1500
@@ -10,12 +10,18 @@
 #define BAUDRATE 115200
 #define SCALE_ACC_2G 16384.0
 #define SCALE_GYRO_250 131.0
+#define WEIGHT_EFILTER_GYRO 40.0
 
 // PROTOTYPES
 void get_imu();
 void calculate_pid();
 
 MPU6050 imu;
+
+// filtering objects
+ExponentialFilter<float> filterGX(WEIGHT_EFILTER_GYRO, 0);
+ExponentialFilter<float> filterGY(WEIGHT_EFILTER_GYRO, 0);
+ExponentialFilter<float> filterGZ(WEIGHT_EFILTER_GYRO, 0);
 
 /*
 ### channel:
@@ -44,10 +50,11 @@ RIGHT SIDE TX
 
 // for p_gain roll und pitch: 6.0
 // for d_gain roll und pitch: 10.0
+// 13.01.17: p=4 i=0.005 d= 0.2
 
-float pid_p_gain_roll = 4.0;               //Gain setting for the roll P-controller (1.3)
-float pid_i_gain_roll = 0.005;              //Gain setting for the roll I-controller (0.3)
-float pid_d_gain_roll = 2;                //Gain setting for the roll D-controller (15)
+float pid_p_gain_roll = 1.5;               //Gain setting for the roll P-controller (1.3)
+float pid_i_gain_roll = 0.01;              //Gain setting for the roll I-controller (0.3)
+float pid_d_gain_roll = 7.0;                //Gain setting for the roll D-controller (15)
 int pid_max_roll = 250;                    //Maximum output of the PID-controller (+/-)
 
 float pid_p_gain_pitch = pid_p_gain_roll;  //Gain setting for the pitch P-controller.
@@ -55,7 +62,7 @@ float pid_i_gain_pitch = pid_i_gain_roll;  //Gain setting for the pitch I-contro
 float pid_d_gain_pitch = pid_d_gain_roll;  //Gain setting for the pitch D-controller.
 int pid_max_pitch = pid_max_roll;          //Maximum output of the PID-controller (+/-)
 
-float pid_p_gain_yaw = 6.0;                //Gain setting for the pitch P-controller. //4.0
+float pid_p_gain_yaw = 1.0;                //Gain setting for the pitch P-controller. //4.0
 float pid_i_gain_yaw = 0.0;               //Gain setting for the pitch I-controller. //0.02
 float pid_d_gain_yaw = 0.0;                //Gain setting for the pitch D-controller.
 int pid_max_yaw = 500;                     //Maximum output of the PID-controller (+/-)
@@ -457,9 +464,14 @@ ISR(PCINT0_vect){
 
 void get_imu () {
 
-	flight_data.gx = (float) ( (imu.getRotationX() - gyro_roll_cal) / SCALE_GYRO_250 );
-	flight_data.gy = (float) ( (imu.getRotationY() - gyro_pitch_cal) / SCALE_GYRO_250 );
-	flight_data.gz = (float) ( (imu.getRotationZ() - gyro_yaw_cal) / SCALE_GYRO_250 );
+	filterGX.Filter(imu.getRotationX() - gyro_roll_cal);
+	filterGY.Filter(imu.getRotationY() - gyro_pitch_cal);
+	filterGZ.Filter(imu.getRotationZ() - gyro_yaw_cal);
+
+
+	flight_data.gx = ( filterGX.Current() / SCALE_GYRO_250 );
+	flight_data.gy = ( filterGY.Current() / SCALE_GYRO_250 );
+	flight_data.gz = ( filterGZ.Current() / SCALE_GYRO_250 );
 
 	flight_data.ax = (float) ( (imu.getAccelerationX() - acc_x_cal) / SCALE_ACC_2G );
 	flight_data.ay = (float) ( (imu.getAccelerationY() - acc_y_cal) / SCALE_ACC_2G );

@@ -47,8 +47,21 @@ MPU6050 imu;
 // create a filter object:
 // TODO: the running average filter library expects a float (double)
 // which is bad for business -> expensive. tweak the library so it works on int16_t data types
-RunningAverage runningAverageAX(10);
-ExponentialFilter<int16_t> exponentialAX(5, 0);
+RunningAverage runningAverageAX(5);
+RunningAverage runningAverageAY(5);
+RunningAverage runningAverageAZ(5);
+
+RunningAverage runningAverageGX(5);
+RunningAverage runningAverageGY(5);
+RunningAverage runningAverageGZ(5);
+
+ExponentialFilter<float> exponentialAX(40, 0);
+ExponentialFilter<float> exponentialAY(40, 0);
+ExponentialFilter<float> exponentialAZ(40, 0);
+
+ExponentialFilter<float> exponentialGX(40, 0);
+ExponentialFilter<float> exponentialGY(40, 0);
+ExponentialFilter<float> exponentialGZ(40, 0);
 
 uint8_t scaling_factor = 0;
 
@@ -61,7 +74,13 @@ void setup(){
 
 	// clear the running average filter object
 	runningAverageAX.clear();
+	runningAverageAY.clear();
+	runningAverageAZ.clear();
 	
+	runningAverageGX.clear();
+	runningAverageGY.clear();
+	runningAverageGZ.clear();
+
 	Wire.begin();
 	Serial.begin(115200);
 
@@ -86,13 +105,13 @@ void setup(){
 
 	Serial.println("offsets: ");
 
-	Serial.print(imu.getXAccelOffset()); Serial.print("\t");
-    Serial.print(imu.getYAccelOffset()); Serial.print("\t");
-    Serial.print(imu.getZAccelOffset()); Serial.print("\t");
-    Serial.print(imu.getXGyroOffset()); Serial.print("\t");
-    Serial.print(imu.getYGyroOffset()); Serial.print("\t");
+	Serial.print(imu.getXAccelOffset()); Serial.print(" ");
+    Serial.print(imu.getYAccelOffset()); Serial.print(" ");
+    Serial.print(imu.getZAccelOffset()); Serial.print(" ");
+    Serial.print(imu.getXGyroOffset()); Serial.print(" ");
+    Serial.print(imu.getYGyroOffset()); Serial.print(" ");
 	Serial.println(imu.getZGyroOffset());
-	delay(500);
+	delay(50);
 
 	// set the sensitivity of both acceleration and gyro to something different:
 	
@@ -113,21 +132,47 @@ void loop(){
 		&raw.gy, 
 		&raw.gz ); // works. quite amazingly so.
 
+	// acceleration
 	runningAverageAX.addValue(raw.ax);
+	runningAverageAY.addValue(raw.ay);
+	runningAverageAZ.addValue(raw.az);
 	exponentialAX.Filter(raw.ax);
+	exponentialAY.Filter(raw.ay);
+	exponentialAZ.Filter(raw.az);
+	
+	//rotation
+	runningAverageGX.addValue(raw.gx);
+	runningAverageGY.addValue(raw.gy);
+	runningAverageGZ.addValue(raw.gz);
+	exponentialGX.Filter(raw.gx);
+	exponentialGY.Filter(raw.gy);
+	exponentialGZ.Filter(raw.gz);
 
-	Serial.print("raw:\t");
-	Serial.print(raw.ax); Serial.print("\n");
-    //Serial.print(raw.ay); Serial.print("\t");
-    //Serial.print(raw.az); Serial.print("\t");
-    //Serial.print(raw.gx); Serial.print("\t");
-    //Serial.print(raw.gy); Serial.print("\t");
-	//Serial.print(raw.gz); Serial.print("\n");
-	Serial.print("running average filtered:\t");
-	Serial.print(runningAverageAX.getAverage()); Serial.print("\n");
-	Serial.print("exponentially filtered:\t");
-	Serial.print(exponentialAX.Current()); Serial.print("\n");
-	delay(50);
+	Serial.print(raw.ax); Serial.print(" ");
+	Serial.print(raw.ay); Serial.print(" ");
+	Serial.print(raw.az); Serial.print(" ");
+
+	Serial.print(raw.gx); Serial.print(" ");
+	Serial.print(raw.gy); Serial.print(" ");
+	Serial.print(raw.gz); Serial.print(" ");
+
+	Serial.print(runningAverageAX.getAverage()); Serial.print(" ");
+	Serial.print(runningAverageAY.getAverage()); Serial.print(" ");
+	Serial.print(runningAverageAZ.getAverage()); Serial.print(" ");
+
+	Serial.print(runningAverageGX.getAverage()); Serial.print(" ");
+	Serial.print(runningAverageGY.getAverage()); Serial.print(" ");
+	Serial.print(runningAverageGZ.getAverage()); Serial.print(" ");
+
+	Serial.print(exponentialAX.Current()); Serial.print(" ");
+	Serial.print(exponentialAY.Current()); Serial.print(" ");
+	Serial.print(exponentialAZ.Current()); Serial.print(" ");
+	
+	Serial.print(exponentialGX.Current()); Serial.print(" ");
+	Serial.print(exponentialGY.Current()); Serial.print(" ");
+	Serial.print(exponentialGZ.Current()); Serial.print("\n");
+
+//	delay(1);
 /*
 	scale(&flight_data, &raw, imu.getFullScaleAccelRange());
 

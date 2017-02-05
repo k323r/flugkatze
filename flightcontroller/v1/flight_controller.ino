@@ -12,10 +12,6 @@
 #define SCALE_GYRO_250 131.0
 #define WEIGHT_EFILTER_GYRO 40.0
 
-// PROTOTYPES
-void get_imu();
-void calculate_pid();
-
 MPU6050 imu;
 
 // filtering objects
@@ -97,6 +93,8 @@ double gyro_pitch, gyro_roll, gyro_yaw;
 int8_t gyro_roll_cal, gyro_pitch_cal, gyro_yaw_cal, acc_x_cal, acc_y_cal, acc_z_cal;
 byte highByte, lowByte;
 
+float old_time = 0.0, current_time2 = 0.0, deltaT = 0.0;
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // The following data structure is used to store all essential data and send it to the rapsberry pi
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -118,6 +116,12 @@ struct Flight_data {
     int yaw;
 } flight_data;
 
+
+// PROTOTYPES
+void get_imu();
+void calculate_pid();
+void complementary_filter();
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Setup routine
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -136,36 +140,28 @@ void setup(){
     digitalWrite(12,HIGH);                                       //Turn on the warning led.
     delay(250);                                                 //Wait 2 second befor continuing.
 
-	imu.initialize();
+    imu.initialize();
 
-	Serial.println("testing IMU communication");
-	Serial.println(imu.testConnection() ? "connection established" : "connection failed");
+    Serial.println("testing IMU communication");
+    Serial.println(imu.testConnection() ? "connection established" : "connection failed");
 
-	imu.setFullScaleAccelRange(0);
+    imu.setFullScaleAccelRange(0);
 
     //Now that we have 2000 measures, we need to devide by 2000 to get the average gyro offset.
    // gyro_roll_cal = imu.getXGyroOffset();                                       //Divide the roll total by 2000.
     for (int i = 0; i < N_SAMPLES; i++) {
-		gyro_roll_cal += imu.getRotationX();
-		gyro_pitch_cal += imu.getRotationY();
-		gyro_yaw_cal += imu.getRotationZ();
-	}
+        gyro_roll_cal += imu.getRotationX();
+        gyro_pitch_cal += imu.getRotationY();
+        gyro_yaw_cal += imu.getRotationZ();
+    }
 
-	gyro_roll_cal /= N_SAMPLES;
-	gyro_pitch_cal /= N_SAMPLES;
-	gyro_yaw_cal /= N_SAMPLES;
+    gyro_roll_cal /= N_SAMPLES;
+    gyro_pitch_cal /= N_SAMPLES;
+    gyro_yaw_cal /= N_SAMPLES;
 
-	acc_x_cal = imu.getXAccelOffset();
-	acc_y_cal = imu.getYAccelOffset();
-	acc_z_cal = imu.getZAccelOffset();
-/*
-    gyro_roll_cal = 0;                                       //Divide the roll total by 2000.
-    gyro_pitch_cal = 0;                                      //Divide the pitch total by 2000.
-    gyro_yaw_cal = 0;                                        //Divide the yaw total by 2000.
-	acc_x_cal = 0;
-	acc_y_cal = 0;
-	acc_z_cal = 0;
-*/
+    acc_x_cal = imu.getXAccelOffset();
+    acc_y_cal = imu.getYAccelOffset();
+    acc_z_cal = imu.getZAccelOffset();
 
     PCICR |= (1 << PCIE0);                                       //Set PCIE0 to enable PCMSK0 scan.
     PCMSK0 |= (1 << PCINT0);                                     //Set PCINT0 (digital input 8) to trigger an interrupt on state change.
@@ -200,15 +196,22 @@ void setup(){
 //Main program loop
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void loop(){
+    
+    deltaT = ( current_time2 - old_time ) / 1000000.0;
+    old_time = current_time2;
+    current_time2 = micros();
+    
+
     //Let's get the current gyro data and scale it to degrees per second for the pid calculations.
     get_imu();
+    //complementary_filter();
 
     flight_data.throttle = receiver_input_channel_2;
     flight_data.roll = receiver_input_channel_4;
     flight_data.pitch = receiver_input_channel_3;
     flight_data.yaw = receiver_input_channel_1;
 
-/*
+
     // send telemetry (stored in the flight_data struct)
     char len_struct = sizeof(flight_data);
     char aux[len_struct];                 // auxiliary buffer used to serialize the struct -> put init before loop!!!!!!!
@@ -216,21 +219,12 @@ void loop(){
     Serial.write('S');                    // starting byte to ensure data integrity
     Serial.write((uint8_t *) &aux, len_struct);  // send the actual data
     Serial.write('E');                    // end byte to ensure data integrity
-*/
+
+
     gyro_roll_input = (gyro_roll_input * 0.3) + (flight_data.gx * 0.7);            //Gyro pid input is deg/sec.
     gyro_pitch_input = (gyro_pitch_input * 0.3) + (flight_data.gy * 0.7);         //Gyro pid input is deg/sec.
     gyro_yaw_input = (gyro_yaw_input * 0.3) + (flight_data.gz * 0.7);               //Gyro pid input is deg/sec.
 
-    // gyro_roll_input = (gyro_roll_input * 0.8) + ((flight_data.gx / 57.14286) * 0.2);            //Gyro pid input is deg/sec.
-    // gyro_pitch_input = (gyro_pitch_input * 0.8) + ((flight_data.gy / 57.14286) * 0.2);         //Gyro pid input is deg/sec.
-    // gyro_yaw_input = (gyro_yaw_input * 0.8) + ((flight_data.gz / 57.14286) * 0.2);               //Gyro pid input is deg/sec.
-
-	// gyro_roll_input = 0.0;           //Gyro pid input is deg/sec.
-    // gyro_pitch_input = 0.0;         //Gyro pid input is deg/sec.
-    // gyro_yaw_input = 0.0;               //Gyro pid input is deg/sec.
-
-
-    //print_signals();
 
     //For starting the motors: throttle low and yaw left (step 1).
     if(receiver_input_channel_2 < 1050 && receiver_input_channel_1 < 1090) {
@@ -268,10 +262,6 @@ void loop(){
         pid_roll_setpoint = (receiver_input_channel_4 - 1492)/3.0;
     }
 
-
-    //  if(receiver_input_channel_4 > 1508) pid_roll_setpoint = (receiver_input_channel_4 - 1508)/3.0;
-    //  else if(receiver_input_channel_4 < 1492) pid_roll_setpoint = (receiver_input_channel_4 - 1492)/3.0;
-
     //The PID set point in degrees per second is determined by the pitch receiver input.
     //In the case of deviding by 3 the max pitch rate is aprox 164 degrees per second ( (500-8)/3 = 164d/s ).
     pid_pitch_setpoint = 0;
@@ -293,48 +283,20 @@ void loop(){
             pid_yaw_setpoint = ((receiver_input_channel_1 - 1492)/3.0) *-1.0;
         }
     }
+
     //PID inputs are known. So we can calculate the pid output.
     calculate_pid();
 
-    //The battery voltage is needed for compensation.
-    //A complementary filter is used to reduce noise.
-    //0.09853 = 0.08 * 1.2317.
-    // battery_voltage = battery_voltage * 0.92 + (analogRead(0) + 65) * 0.09853;
-
-    //Turn on the led if battery voltage is to low.
-    //if(battery_voltage < 1050 && battery_voltage > 600)digitalWrite(12, HIGH);
-
     throttle = receiver_input_channel_2;                                      //We need the throttle signal as a base signal.
-
-
-//  print_signals();
-//  throttle_rel = (throttle - 1000) / 100.0;
-// print_signals();
-
-//  Serial.print("throttle relative: "); Serial.print(throttle_rel);
-
 
     if (start == 2){                                                          //The motors are started.
         if (throttle > THROTTLE_MAX) {
             throttle = THROTTLE_MAX;                                   //We need some room to keep full control at full throttle.
         }
-/*
-        esc_1 = throttle - pid_output_pitch + pid_output_roll - pid_output_yaw; //Calculate the pulse for esc 1 (front-right - CCW)
-        esc_2 = throttle + pid_output_pitch + pid_output_roll + pid_output_yaw; //Calculate the pulse for esc 2 (rear-right - CW)
-        esc_3 = throttle + pid_output_pitch - pid_output_roll - pid_output_yaw; //Calculate the pulse for esc 3 (rear-left - CCW)
-        esc_4 = throttle - pid_output_pitch - pid_output_roll + pid_output_yaw; //Calculate the pulse for esc 4 (front-left - CW)
-
-*/
         esc_1 = throttle - pid_output_pitch + pid_output_roll + pid_output_yaw; //Calculate the pulse for esc 1 (front-right - CCW)
         esc_2 = throttle + pid_output_pitch + pid_output_roll - pid_output_yaw; //Calculate the pulse for esc 2 (rear-right - CW)
         esc_3 = throttle + pid_output_pitch - pid_output_roll + pid_output_yaw; //Calculate the pulse for esc 3 (rear-left - CCW)
         esc_4 = throttle - pid_output_pitch - pid_output_roll - pid_output_yaw; //Calculate the pulse for esc 4 (front-left - CW)
-        //    if (battery_voltage < 1240 && battery_voltage > 800){                   //Is the battery connected?
-        //      esc_1 += esc_1 * ((1240 - battery_voltage)/(float)3500);              //Compensate the esc-1 pulse for voltage drop.
-        //      esc_2 += esc_2 * ((1240 - battery_voltage)/(float)3500);              //Compensate the esc-2 pulse for voltage drop.
-        //      esc_3 += esc_3 * ((1240 - battery_voltage)/(float)3500);              //Compensate the esc-3 pulse for voltage drop.
-        //      esc_4 += esc_4 * ((1240 - battery_voltage)/(float)3500);              //Compensate the esc-4 pulse for voltage drop.
-        //    }
 
         if (esc_1 < THROTTLE_THRESHOLD) {
             esc_1 = THROTTLE_THRESHOLD;                                         //Keep the motors running.
@@ -460,22 +422,68 @@ ISR(PCINT0_vect){
     }
 }
 
+/*
+void ComplementaryFilter(short accData[3], short gyrData[3], float *pitch, float *roll)
+{
+    float pitchAcc, rollAcc;               
+ 
+    // Integrate the gyroscope data -> int(angularSpeed) = angle
+    *pitch += ((float)gyrData[0] / GYROSCOPE_SENSITIVITY) * dt; // Angle around the X-axis
+    *roll -= ((float)gyrData[1] / GYROSCOPE_SENSITIVITY) * dt;    // Angle around the Y-axis
+ 
+    // Compensate for drift with accelerometer data if !bullshit
+    // Sensitivity = -2 to 2 G at 16Bit -> 2G = 32768 && 0.5G = 8192
+    int forceMagnitudeApprox = abs(accData[0]) + abs(accData[1]) + abs(accData[2]);
+    if (forceMagnitudeApprox > 8192 && forceMagnitudeApprox < 32768)
+    {
+	// Turning around the X axis results in a vector on the Y-axis
+        pitchAcc = atan2f((float)accData[1], (float)accData[2]) * 180 / M_PI;
+        *pitch = *pitch * 0.98 + pitchAcc * 0.02;
+ 
+	// Turning around the Y axis results in a vector on the X-axis
+        rollAcc = atan2f((float)accData[0], (float)accData[2]) * 180 / M_PI;
+        *roll = *roll * 0.98 + rollAcc * 0.02;
+    }
+} 
+*/
+
+void complementary_filter() {
+    
+    //filter yaw rotation:
+    filterGZ.Filter(imu.getRotationZ() - gyro_yaw_cal);
+    
+    // get acceleration:
+    flight_data.ax = (float) ( (imu.getAccelerationX() - acc_x_cal) / SCALE_ACC_2G );
+    flight_data.ay = (float) ( (imu.getAccelerationY() - acc_y_cal) / SCALE_ACC_2G );
+    flight_data.az = (float) ( (imu.getAccelerationZ() - acc_z_cal) / SCALE_ACC_2G );
+
+    flight_data.gx += ((imu.getRotationX() - gyro_roll_cal) / SCALE_GYRO_250 ) * deltaT;
+    flight_data.gy += ((imu.getRotationY() - gyro_pitch_cal) / SCALE_GYRO_250 ) * deltaT;
+
+    float rollAcc = atan2f( flight_data.ay, flight_data.az ) * (180 / 3.14159);
+    float pitchAcc = atan2f( flight_data.ax, flight_data.az ) * (180 / 3.14159);
+
+    flight_data.gx  = flight_data.gx * 0.98 + rollAcc * 0.02;
+    flight_data.gy = flight_data.gy * 0.98 + pitchAcc * 0.02;
+
+    // not yet needed, keep the exponential filter!
+    flight_data.gz = ( filterGZ.Current() / SCALE_GYRO_250 );
+}
 
 
 void get_imu () {
 
-	filterGX.Filter(imu.getRotationX() - gyro_roll_cal);
-	filterGY.Filter(imu.getRotationY() - gyro_pitch_cal);
-	filterGZ.Filter(imu.getRotationZ() - gyro_yaw_cal);
+    filterGX.Filter(imu.getRotationX() - gyro_roll_cal);
+    filterGY.Filter(imu.getRotationY() - gyro_pitch_cal);
+    filterGZ.Filter(imu.getRotationZ() - gyro_yaw_cal);
 
+    flight_data.gx = ( filterGX.Current() / SCALE_GYRO_250 );
+    flight_data.gy = ( filterGY.Current() / SCALE_GYRO_250 );
+    flight_data.gz = ( filterGZ.Current() / SCALE_GYRO_250 );
 
-	flight_data.gx = ( filterGX.Current() / SCALE_GYRO_250 );
-	flight_data.gy = ( filterGY.Current() / SCALE_GYRO_250 );
-	flight_data.gz = ( filterGZ.Current() / SCALE_GYRO_250 );
-
-	flight_data.ax = (float) ( (imu.getAccelerationX() - acc_x_cal) / SCALE_ACC_2G );
-	flight_data.ay = (float) ( (imu.getAccelerationY() - acc_y_cal) / SCALE_ACC_2G );
-	flight_data.az = (float) ( (imu.getAccelerationZ() - acc_z_cal) / SCALE_ACC_2G );
+    flight_data.ax = (float) ( (imu.getAccelerationX() - acc_x_cal) / SCALE_ACC_2G );
+    flight_data.ay = (float) ( (imu.getAccelerationY() - acc_y_cal) / SCALE_ACC_2G );
+    flight_data.az = (float) ( (imu.getAccelerationZ() - acc_z_cal) / SCALE_ACC_2G );
 
 }
 

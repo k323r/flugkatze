@@ -16,7 +16,7 @@ ExponentialFilter<float> filterGY(WEIGHT_EFILTER_GYRO, 0);
 ExponentialFilter<float> filterGZ(WEIGHT_EFILTER_GYRO, 0);
 
 // used to calculate current delta T
-float c_time = 0.0, old_time = 0.0;
+double c_time = 0.0, old_time = 0.0;
 
 t_Sensors sensors;
 t_Offsets offsets;
@@ -60,7 +60,10 @@ void loop(){
 	Serial.print((c_time - sensors.deltaT) / 1000000.0); Serial.print(" ");
 	Serial.print(state.a_roll); Serial.print(" ");
 	Serial.print(state.a_pitch); Serial.print(" ");
-	Serial.print(state.a_yaw);
+	Serial.print(state.a_yaw); Serial.print(" ");
+	Serial.print(sensors.ax); Serial.print(" ");
+	Serial.print(sensors.ay); Serial.print(" ");
+	Serial.print(sensors.az);
 	Serial.println("");
 
 	delay(100);

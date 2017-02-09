@@ -148,3 +148,17 @@ correlation matrix of the fit parameters:
                a      b      
 a               1.000 
 b              -0.917  1.000 
+
+
+*******************************************************************************
+Sun Feb  5 15:35:32 2017
+
+
+FIT:    data read from "drift.dat"
+        format = z
+        #datapoints = 58432
+        residuals are weighted equally (unit weight)
+
+function used for fitting: f(x)
+fitted parameters initialized with current variable values
+

@@ -1,0 +1,8 @@
+# compilation bi-product:
+*~
+*.swp
+*.o
+*.d
+*.elf
+*.hex
+

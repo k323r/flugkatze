@@ -1,6 +1,7 @@
 # compilation bi-product:
 *~
 *.swp
+*.a
 *.o
 *.d
 *.elf

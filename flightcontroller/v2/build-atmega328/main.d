@@ -12,4 +12,4 @@ build-atmega328/main.o: main.ino \
  flugkatze.h /usr/share/arduino/libraries/Wire/Wire.h \
  /usr/share/arduino/hardware/arduino/cores/arduino/Stream.h \
  ../../lib/i2cdevlib/Arduino/I2Cdev/I2Cdev.h ../../lib/MPU6050/MPU6050.h \
- filter.h state.h
+ filter.h state.h channel.h receiver.h

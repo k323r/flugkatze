@@ -7,9 +7,7 @@ class State_c : public ExponentialFilter, public MPU6050 {
 		float acc[3];
 		float gyro[3];
 
-		float rollAngle;
-		float pitchAngle;
-		float yawAngle;
+		char len_s_angles;
 
 		double cTime;
 		double oldTime;
@@ -32,6 +30,14 @@ class State_c : public ExponentialFilter, public MPU6050 {
 		}
 
 	public:
+		
+		struct S_Angles {
+
+			float rollAngle;
+			float pitchAngle;
+			float yawAngle;
+		
+		} s_angles;
 
 		void initFilters(float weightAX, float weightAY, float weightAZ) {
 			filterAX.setWeight(weightAX);
@@ -49,9 +55,10 @@ class State_c : public ExponentialFilter, public MPU6050 {
 		}
 
 		void initState() {
-			rollAngle = 0;
-			pitchAngle = 0;
-			yawAngle = 0;
+			len_s_angles = sizeof(s_angles);
+			s_angles.rollAngle = 0;
+			s_angles.pitchAngle = 0;
+			s_angles.yawAngle = 0;
 			cTime = 0;
 			oldTime = 0;
 			deltaTime = 0;
@@ -81,19 +88,29 @@ class State_c : public ExponentialFilter, public MPU6050 {
     		rollAcc = atan2(acc[1], acc[2])*RAD2DEG;
     		pitchAcc = atan2(-acc[0], acc[2])*RAD2DEG;
 	
-			rollAngle = (gyro[0] * deltaTime + rollAngle) * 0.98 + rollAcc * 0.02;
-			pitchAngle = (gyro[1] * deltaTime + pitchAngle) * 0.98 + pitchAcc * 0.02;
-			yawAngle = gyro[2] * deltaTime + yawAngle;
+			s_angles.rollAngle = (gyro[0] * deltaTime + s_angles.rollAngle) * 0.98 + rollAcc * 0.02;
+			s_angles.pitchAngle = (gyro[1] * deltaTime + s_angles.pitchAngle) * 0.98 + pitchAcc * 0.02;
+			s_angles.yawAngle = gyro[2] * deltaTime + s_angles.yawAngle;
 		}	
 		
 		void printState() {
 			Serial.print((cTime - deltaTime )/ 1000000.0); Serial.print(" ");
-			Serial.print(rollAngle); Serial.print(" ");
-			Serial.print(pitchAngle); Serial.print(" ");
-			Serial.print(yawAngle); Serial.print(" ");
+			Serial.print(s_angles.rollAngle); Serial.print(" ");
+			Serial.print(s_angles.pitchAngle); Serial.print(" ");
+			Serial.print(s_angles.yawAngle); Serial.print(" ");
 			Serial.print(acc[0]); Serial.print(" ");
 			Serial.print(acc[1]); Serial.print(" ");
 			Serial.println(acc[2]);		
+
+		}
+
+		void sendState() {
+						
+			char serialization_buffer[len_s_angles];
+			memcpy(&serialization_buffer, &s_angles, len_s_angles);
+			Serial.write('S');
+			Serial.write((uint8_t *) &serialization_buffer, len_s_angles);
+			Serial.write('E');
 
 		}
 };

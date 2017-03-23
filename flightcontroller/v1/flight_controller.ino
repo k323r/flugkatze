@@ -15,9 +15,9 @@
 MPU6050 imu;
 
 // filtering objects
-ExponentialFilter<float> filterGX(WEIGHT_EFILTER_GYRO, 0);
-ExponentialFilter<float> filterGY(WEIGHT_EFILTER_GYRO, 0);
-ExponentialFilter<float> filterGZ(WEIGHT_EFILTER_GYRO, 0);
+ExponentialFilter filterGX;
+ExponentialFilter filterGY;
+ExponentialFilter filterGZ;
 
 /*
 ### channel:
@@ -186,6 +186,15 @@ void setup(){
         }
     }
     start = 0;                                                   //Set start back to 0.
+
+	filterGX.setWeight(  WEIGHT_EFILTER_GYRO );
+	filterGX.setCurrent( 0 );
+
+	filterGY.setWeight(  WEIGHT_EFILTER_GYRO );
+	filterGY.setCurrent( 0 );
+
+	filterGZ.setWeight(  WEIGHT_EFILTER_GYRO );
+	filterGZ.setCurrent( 0 );
 
     //When everything is done, turn off the led.
     digitalWrite(12,LOW);                                        //Turn off the warning led.
@@ -450,7 +459,7 @@ void ComplementaryFilter(short accData[3], short gyrData[3], float *pitch, float
 void complementary_filter() {
     
     //filter yaw rotation:
-    filterGZ.Filter(imu.getRotationZ() - gyro_yaw_cal);
+    filterGZ.filter(imu.getRotationZ() - gyro_yaw_cal);
     
     // get acceleration:
     flight_data.ax = (float) ( (imu.getAccelerationX() - acc_x_cal) / SCALE_ACC_2G );
@@ -467,19 +476,19 @@ void complementary_filter() {
     flight_data.gy = flight_data.gy * 0.98 + pitchAcc * 0.02;
 
     // not yet needed, keep the exponential filter!
-    flight_data.gz = ( filterGZ.Current() / SCALE_GYRO_250 );
+    flight_data.gz = ( filterGZ.getCurrent() / SCALE_GYRO_250 );
 }
 
 
 void get_imu () {
 
-    filterGX.Filter(imu.getRotationX() - gyro_roll_cal);
-    filterGY.Filter(imu.getRotationY() - gyro_pitch_cal);
-    filterGZ.Filter(imu.getRotationZ() - gyro_yaw_cal);
+    filterGX.filter(imu.getRotationX() - gyro_roll_cal);
+    filterGY.filter(imu.getRotationY() - gyro_pitch_cal);
+    filterGZ.filter(imu.getRotationZ() - gyro_yaw_cal);
 
-    flight_data.gx = ( filterGX.Current() / SCALE_GYRO_250 );
-    flight_data.gy = ( filterGY.Current() / SCALE_GYRO_250 );
-    flight_data.gz = ( filterGZ.Current() / SCALE_GYRO_250 );
+    flight_data.gx = ( filterGX.getCurrent() / SCALE_GYRO_250 );
+    flight_data.gy = ( filterGY.getCurrent() / SCALE_GYRO_250 );
+    flight_data.gz = ( filterGZ.getCurrent() / SCALE_GYRO_250 );
 
     flight_data.ax = (float) ( (imu.getAccelerationX() - acc_x_cal) / SCALE_ACC_2G );
     flight_data.ay = (float) ( (imu.getAccelerationY() - acc_y_cal) / SCALE_ACC_2G );

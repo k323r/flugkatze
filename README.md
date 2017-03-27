@@ -5,4 +5,4 @@ Source Code für den Arduino und den Raspberry Pi zur Steuerung eines Quadrocopt
 
 <a href="http://www.youtube.com/watch?feature=player_embedded&v=ZoUT3JmNeI4
 " target="_blank"><img src="http://img.youtube.com/vi/ZoUT3JmNeI4/0.jpg" 
-alt="Copter am Werdersee" width="240" height="180" border="10" /></a>
+alt="Copter am Werdersee" width="960" height="720" border="10" /></a>

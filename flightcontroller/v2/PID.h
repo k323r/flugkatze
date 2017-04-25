@@ -1,44 +1,70 @@
 class PID_c{
 	
 	private:
-		
-		byte _state;
-		unsigned long _timer;
-		unsigned int _input;
-		int _counter;	
+
+		float _error;		// error between the setpoint and the current state
+		float _error_mem;	// used to calculate the difference
+		float _integrative_mem;	// used to integrate the error
+		float _current;	
+
+		float _P;			// the acutal weights
+		float _I;
+		float _D;
+	
+		float _max;			// max input/output aussumed to be symmetrical!
 	
 	public:
 
-
-		void initChannel() {
-			_state = 0;
-			_timer = 0;
-			_input = 0;
-			_counter = 0;		
+		void init (float P, float I, float D, float max) {
+			_P = P;
+			_I = I;
+			_D = D;
+			_max = max;
 		}
 
-		byte getState () {
-			return(_state);
+		void setP (float P) {
+			_P = P;
 		}
 
-		void setState (byte state) {
-			_state = state;
+		void setI (float I) {
+			_I = I;
+		}
+
+		void setD (float D) {
+			_D = D;
 		}
 	
-		unsigned long getTimer () {
-			return (_timer);
+		float getCurrent() {
+			return _current;
 		}
 
-		void setTimer(unsigned long c_time) {
-			_timer = c_time;
+		void setMax(float max) {
+			_max = max;
 		}
 
-		unsigned long getInput () {
-			return (_input);
+		float calc (float input, float setpoint) {
+			_error = input - setpoint;
+			_integrative_mem += _I * _error;
+			
+			_current = 
+				( _P * _error )
+				+
+				_integrative_mem
+				+
+				( _D * ( _error - _error_mem) );
+
+			if (_current > _max) { 
+				_current = _max;
+			} else if (_current < _max * -1) {
+				_current = -1 * _max;
+			}
+
+			_error_mem = _error;
+
+			return _current;
 		}
-	
-		void setInput(unsigned int input) {
-			_input = input;
+
+		void print () {
+			Serial.print("current: "); Serial.println(_current);
 		}
-		
 };

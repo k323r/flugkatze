@@ -3,12 +3,18 @@
 #include "state.h"
 #include "channel.h"
 #include "receiver.h"
+#include "PID.h"
 
 MPU6050 imu;
 State_c State;
 Receiver_c Receiver;
+//PID_c PIDTest;
 
 unsigned long c_time;
+unsigned long c_time2;
+float sine;
+float sine2;
+float out;
 
 /*
 	ROLLING AXIS -> X AXIS of the GYRO
@@ -22,6 +28,7 @@ unsigned long c_time;
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void setup(){
 
+	c_time = 0;
 
 	Serial.begin(BAUDRATE);
     Wire.begin();                                                //Start the I2C as master.
@@ -33,6 +40,7 @@ void setup(){
 	// INIT STATE, FILTERS AND IMU
 	State.init();
 	Receiver.init();
+	PIDTest.init(1.0, 0, 0, 5);
 
 	// ATTACH INTERRUPTs FOR RX
 	PCICR |= (1 << PCIE0);  
@@ -42,34 +50,54 @@ void setup(){
     PCMSK0 |= (1 << PCINT3);
 
 	// wait on user interaction & turn of ESC beeping!
-	Serial.println("init done..");	
+	//Serial.println("init done..");	
 	while (Receiver.Yaw.getInput() > 1040 || Receiver.Throttle.getInput() > 1200) {
 		PORTD |= B11110000;
 		delayMicroseconds(1000);
 		PORTD |= B00001111;
 		delay(3);
-		Serial.println("waiting on user");
+	//	Serial.println("waiting on user");
 	}
+
+	State.motorsStop();
+
+//	Serial.println("starting\n");
 		
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //Main program loop /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
 void loop(){
-   	
+  
+	c_time = micros(); 
 	State.update();
-	State.print();
-	Receiver.print();
 
+	// TODO Add PID controllers
+
+	//out = PIDTest.calc(sine, sine2);
+
+	//Serial.write((uint8_t *) &sine, sizeof(sine));
+	//Serial.write((uint8_t *) &out, sizeof(out));
+	//Serial.write('\n');
+	
+	//Serial.print("input : "); Serial.print(sine);
+	//Serial.print(" output : "); Serial.println(out);
+	//Serial.print(" sin(c_time2) : "); Serial.print(sine2);
+	//Serial.print(" PID output : "); Serial.print(PIDTest.getCurrent());
+	//Serial.print(" sum : "); Serial.println(sine + PIDTest.getCurrent());
+
+	
+	
+	// TODO Init sequence needs to be redone in case the TX is offline when the copter fires up
 	// Left stick in lower left corner in order to initate starting the motors
 	if (Receiver.Throttle.getInput() < 1050 && Receiver.Yaw.getInput() < 1090) {
 		State.motorsHold();
-		Serial.println("Motors: HOLD");
+		// Serial.println("Motors: HOLD");
 	}
 
 	if (State.motorsInitiated() && Receiver.Throttle.getInput() < 1050 && Receiver.Yaw.getInput() > 1450) {
 		State.motorsStart();
-		Serial.println("Motors: START");
+		// Serial.println("Motors: START");
 		
 		// PID controllers need to be resettet here!
 		// Rollcontroll.reset();
@@ -79,12 +107,12 @@ void loop(){
 
 	if (State.motorsRunning() && Receiver.Throttle.getInput() < 1050 && Receiver.Yaw.getInput() > 1800) {
 		State.motorsStop();
-		Serial.println("Motors: STOPING");
+		// Serial.println("Motors: STOPING");
 	}
 	
 	
 	if (State.motorsRunning()) {
-		Serial.println("Motors: RUNNING");
+		// Serial.println("Motors: RUNNING");
 	}
 
 	delay(100);

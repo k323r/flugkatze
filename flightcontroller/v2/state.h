@@ -37,8 +37,8 @@ class State_c : public ExponentialFilter, public MPU6050 {
 		}
 
 		void initIMU() {
-			Serial.print("# testing IMU communication... ");
-    		Serial.println(imu.testConnection() ? "connection established" : "connection failed");
+//			Serial.print("# testing IMU communication... ");
+//    		Serial.println(imu.testConnection() ? "connection established" : "connection failed");
     		imu.setFullScaleAccelRange(0);
 		}
 

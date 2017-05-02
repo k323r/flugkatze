@@ -8,13 +8,9 @@
 MPU6050 imu;
 State_c State;
 Receiver_c Receiver;
-//PID_c PIDTest;
-
-unsigned long c_time;
-unsigned long c_time2;
-float sine;
-float sine2;
-float out;
+PID_c Roll;
+PID_c Pitch;
+PID_c Yaw; 
 
 /*
 	ROLLING AXIS -> X AXIS of the GYRO
@@ -27,8 +23,6 @@ float out;
 // Setup routine
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void setup(){
-
-	c_time = 0;
 
 	Serial.begin(BAUDRATE);
     Wire.begin();                                                //Start the I2C as master.
@@ -71,6 +65,7 @@ void loop(){
   
 	c_time = micros(); 
 	State.update();
+	
 
 	// TODO Add PID controllers
 
@@ -92,12 +87,12 @@ void loop(){
 	// Left stick in lower left corner in order to initate starting the motors
 	if (Receiver.Throttle.getInput() < 1050 && Receiver.Yaw.getInput() < 1090) {
 		State.motorsHold();
-		// Serial.println("Motors: HOLD");
+		Serial.println("Motors: HOLD");
 	}
 
 	if (State.motorsInitiated() && Receiver.Throttle.getInput() < 1050 && Receiver.Yaw.getInput() > 1450) {
 		State.motorsStart();
-		// Serial.println("Motors: START");
+		Serial.println("Motors: START");
 		
 		// PID controllers need to be resettet here!
 		// Rollcontroll.reset();
@@ -107,12 +102,12 @@ void loop(){
 
 	if (State.motorsRunning() && Receiver.Throttle.getInput() < 1050 && Receiver.Yaw.getInput() > 1800) {
 		State.motorsStop();
-		// Serial.println("Motors: STOPING");
+		Serial.println("Motors: STOPING");
 	}
 	
 	
 	if (State.motorsRunning()) {
-		// Serial.println("Motors: RUNNING");
+		Serial.println("Motors: RUNNING");
 	}
 
 	delay(100);

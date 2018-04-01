@@ -11,10 +11,11 @@ then
     exit
 fi
 
-USER_LIB_I2CDEVLIB=../../lib/i2cdevlib/Arduino/I2Cdev
-USER_LIB_MPU6050=../../lib/MPU6050
-USER_LIB_BMP180=../../lib/BMP180
-USER_LIB_EXPFILTER=../../lib/ExponentialFilter2
+USER_LIB_I2CDEVLIB=../../../lib/i2cdevlib/Arduino/I2Cdev
+USER_LIB_MPU6050=../../../lib/MPU6050
+USER_LIB_BMP180=../../../lib/BMP180
+USER_LIB_EXPFILTER=../../../lib/ExponentialFilter2
+
 
 
 ARDUINO_BUILDER=/usr/share/arduino/arduino-builder

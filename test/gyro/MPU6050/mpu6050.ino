@@ -3,6 +3,7 @@
     // August 17, 2014
     // Public Domain
     #include<Wire.h>
+    #include "MPU6050.h"
 
     const int MPU_addr=0x68;  // I2C address of the MPU-6050
 

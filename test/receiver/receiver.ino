@@ -23,7 +23,7 @@ void print_signals(){
   else Serial.print("-+-");
   Serial.print(receiver_input_channel_3);
   
-  Serial.print("  ROLL:");
+  Serial.print("  ROLL:");250000
   if(receiver_input_channel_4 - 1480 < 0)Serial.print("<<<");
   else if(receiver_input_channel_4 - 1520 > 0)Serial.print(">>>");
   else Serial.print("-+-");

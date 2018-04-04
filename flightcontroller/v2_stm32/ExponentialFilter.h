@@ -1,6 +1,5 @@
 #ifndef _EXPONENTIALFILTER_H_
 #define _EXPONENTIALFILTER_H_
-#endif
 #pragma once
 
 /* 
@@ -36,3 +35,5 @@ class ExponentialFilter {
 		float current;
 
 };
+#endif
+

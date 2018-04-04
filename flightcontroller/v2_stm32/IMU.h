@@ -1,12 +1,12 @@
 #ifndef _IMU_H_
 #define _IMU_H_
-#endif
 
 #pragma once
 
-#include <Wire.h>
+//#include <Wire.h>
 #include "ExponentialFilter.h"
 #include "Data.h"
+//#include "I2C.h"
 
 #define IMU_DEFAULT_ADDR 0x68
 
@@ -14,7 +14,7 @@
 #define IMU_ACC_X_H     0x3B
 #define IMU_ACC_X_L     0x3C
 #define IMU_ACC_Y_H     0x3D
-#define IMU_ACC_Y_L     0x3E
+#define IMU_ACC_Y_L     0x3EIMU
 #define IMU_ACC_Z_H     0x3F
 #define IMU_ACC_Z_L     0x40
 
@@ -37,7 +37,8 @@ class IMU {
 
         void initialize(float W_FILTER_GYRO, int NSAMPLES);
         bool testConnection();
-        void update(Data* state);
+        uint8_t update(Data* state);
+        uint16_t getAddedRegisters();
         void setAccRange(uint8_t range);
         uint8_t getAccRange();
 
@@ -68,3 +69,6 @@ class IMU {
         ExponentialFilter yaw;
 
 };
+
+#endif
+

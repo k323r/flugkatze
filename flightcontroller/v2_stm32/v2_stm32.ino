@@ -2,10 +2,11 @@
 #include "Data.h"
 
 #define BAUDRATE 115200     // Serial speed
-#define NSAMPLES 1000       // number of samples for offset
+#define NSAMPLES 500       // number of samples for offset
 #define W_FILTER_GYRO 50.0  // weight for the exponential filter
 #define SCALE_GYRO_250 131.0
 #define SCALE_ACC_2G 16384.0
+#define I2C_TIMEOUT 1000
 // INIT some objects
 // IMU
 
@@ -33,14 +34,7 @@ void loop() {
   //Serial2.print("current time: "); Serial2.print(current_time); Serial2.print(", deltaT: "); Serial2.println(deltaT); 
   imu.update(&state);
   state.send();
-  
-  Serial2.print(state.ax); Serial2.print(" ");
-  Serial2.print(state.ay); Serial2.print(" ");
-  Serial2.print(state.az); Serial2.print(" ");
-  Serial2.print(state.roll); Serial2.print(" ");
-  Serial2.print(state.pitch); Serial2.print(" ");
-  Serial2.println(state.yaw);
-  delay(100);
+  delay(5);
   
 }
 

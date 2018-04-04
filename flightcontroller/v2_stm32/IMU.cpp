@@ -37,6 +37,7 @@ void IMU::initialize(float W_FILTER_GYRO, int NSAMPLES) {
     Serial2.println("awake and ready");
     IMU::setAccRange(0);
     IMU::setGyroRange(0);
+    
     ax.setWeight(W_FILTER_GYRO); ax.setCurrent(0);
     ay.setWeight(W_FILTER_GYRO); ay.setCurrent(0);
     az.setWeight(W_FILTER_GYRO); az.setCurrent(0);
@@ -44,6 +45,9 @@ void IMU::initialize(float W_FILTER_GYRO, int NSAMPLES) {
     pitch.setWeight(W_FILTER_GYRO); pitch.setCurrent(0);
     yaw.setWeight(W_FILTER_GYRO); yaw.setCurrent(0);
 
+    // let the imu settle
+    delay(200);
+    Serial2.println("starting offset measurements");
     // calculate offsets
     for (int i = 0; i < NSAMPLES; i++) {
         _offsets.roll += IMU::getRotationX();
@@ -55,27 +59,67 @@ void IMU::initialize(float W_FILTER_GYRO, int NSAMPLES) {
     _offsets.pitch /= NSAMPLES;
     _offsets.yaw /= NSAMPLES;
 
+
     Serial2.print("offset roll: "); Serial2.println(_offsets.roll);
     Serial2.print("offset pitch: "); Serial2.println(_offsets.pitch);
     Serial2.print("offset yaw: "); Serial2.println(_offsets.yaw);
+
+    delay(5000);
     
 }
 
-void IMU::update(Data* state) {
-  state->ax = ax.filter(IMU::getAccelerationX()) / _scale_acc;// 0x3B (ACCEL_XOUT_H) & 0x3C (ACCEL_XOUT_L)    
-  state->ay = ay.filter(IMU::getAccelerationY()) / _scale_acc;  // 0x3D (ACCEL_YOUT_H) & 0x3E (ACCEL_YOUT_L)
-  state->az = az.filter(IMU::getAccelerationZ()) / _scale_acc;  // 0x3F (ACCEL_ZOUT_H) & 0x40 (ACCEL_ZOUT_L)
+uint8_t IMU::update(Data* state) {
+  Wire.beginTransmission(_imu_address);
+  Wire.write(IMU_ACC_X_H);  // starting with register 0x3B (ACCEL_XOUT_H)
+  Wire.endTransmission(false);
+  uint8_t rcode = Wire.endTransmission(false); // Don't release the bus
+  if (rcode) {
+    Serial2.print(F("i2cRead failed: "));
+    Serial2.println(rcode);
+    return rcode; // See: http://arduino.cc/en/Reference/WireEndTransmission
+  }
+  Wire.requestFrom(_imu_address, 14, (uint8_t)true); // Send a repeated start and then release the bus after reading
+    
+  state->ax = ax.filter((float) IMU::getAddedRegisters()) / _scale_acc;// 0x3B (ACCEL_XOUT_H) & 0x3C (ACCEL_XOUT_L)    
+  state->ay = ay.filter((float) IMU::getAddedRegisters()) / _scale_acc;  // 0x3D (ACCEL_YOUT_H) & 0x3E (ACCEL_YOUT_L)
+  state->az = az.filter((float) IMU::getAddedRegisters()) / _scale_acc;  // 0x3F (ACCEL_ZOUT_H) & 0x40 (ACCEL_ZOUT_L)
 
-  state->temp = IMU::getTemp();  // 0x41 (TEMP_OUT_H) & 0x42 (TEMP_OUT_L)
+  state->temp = IMU::getAddedRegisters();  // missing the conversion function
 
-  roll.filter(IMU::getRotationX() - _offsets.roll);
-  state->roll = roll.getCurrent()/_scale_gyro;  // 0x43 (GYRO_XOUT_H) & 0x44 (GYRO_XOUT_L)
-  
-  pitch.filter(IMU::getRotationY()- _offsets.pitch);
-  state->pitch = pitch.getCurrent()/_scale_gyro;  // 0x45 (GYRO_YOUT_H) & 0x46 (GYRO_YOUT_L)
+  state->roll = roll.filter( IMU::getAddedRegisters() - _offsets.roll) / _scale_gyro;  
+  state->pitch = pitch.filter( IMU::getAddedRegisters() - _offsets.pitch) / _scale_gyro;
+  state->yaw = yaw.filter( IMU::getAddedRegisters() - _offsets.yaw) / _scale_gyro;
+}
 
-  yaw.filter(IMU::getRotationZ()- _offsets.yaw);
-  state->yaw = yaw.getCurrent()/_scale_gyro;  // 0x47 (GYRO_ZOUT_H) & 0x48 (GYRO_ZOUT_L)
+uint16_t IMU::getAddedRegisters() {
+  uint8_t reg1, reg2;
+  uint32_t timeOutTimer = 0;
+  if (Wire.available())
+    reg1 = Wire.read();
+  else {
+    timeOutTimer = micros();
+    while (((micros() - timeOutTimer) < I2C_TIMEOUT) && !Wire.available());
+    if (Wire.available())
+      reg1 = Wire.read();
+    else {
+      Serial2.println(F("i2cRead timeout"));
+      return 0; // This error value is not already taken by endTransmission
+    }
+  }
+  timeOutTimer = 0;
+  if (Wire.available())
+    reg2 = Wire.read();
+  else {
+    timeOutTimer = micros();
+    while (((micros() - timeOutTimer) < I2C_TIMEOUT) && !Wire.available());
+    if (Wire.available())
+      reg2 = Wire.read();
+    else {
+      Serial2.println(F("i2cRead timeout"));
+      return 0; // This error value is not already taken by endTransmission
+    }
+  }
+  return (reg1 << 8 |reg2);
 }
 
 bool IMU::testConnection() {
@@ -113,12 +157,15 @@ uint8_t IMU::getAccRange() {
   return (Wire.read());
 }
 
+
+
+
 float IMU::getAccelerationX() {
   Wire.beginTransmission(_imu_address);
   Wire.write(IMU_ACC_X_H);  // starting with register 0x3B (ACCEL_XOUT_H)
   Wire.endTransmission(false);
   Wire.requestFrom(_imu_address, 2);
-  return ((float) (Wire.read() << 8 | Wire.read()));
+  return (Wire.read() << 8 | Wire.read());
 }
 
 float IMU::getAccelerationY() {
@@ -126,7 +173,7 @@ float IMU::getAccelerationY() {
   Wire.write(IMU_ACC_Y_H);  // starting with register 0x3B (ACCEL_XOUT_H)
   Wire.endTransmission(false);
   Wire.requestFrom(_imu_address, 2);
-  return ((float) (Wire.read() << 8 | Wire.read()));
+  return (Wire.read() << 8 | Wire.read());
  }
 
 float IMU::getAccelerationZ() {
@@ -134,7 +181,7 @@ float IMU::getAccelerationZ() {
   Wire.write(IMU_ACC_Z_H);  // starting with register 0x3B (ACCEL_XOUT_H)
   Wire.endTransmission(false);
   Wire.requestFrom(_imu_address, 2);
-  return ((float) (Wire.read() << 8 | Wire.read()));
+  return (Wire.read() << 8 | Wire.read());
 }
 
 float IMU::getTemp() {
@@ -142,7 +189,7 @@ float IMU::getTemp() {
   Wire.write(IMU_TEMP_H);
   Wire.endTransmission(false);
   Wire.requestFrom(_imu_address, 2);
-  return (float) (Wire.read() << 8 | Wire.read());
+  return (Wire.read() << 8 | Wire.read());
 }
 
 float IMU::getRotationX() {
@@ -150,7 +197,7 @@ float IMU::getRotationX() {
   Wire.write(IMU_GYRO_X_H);  // starting with register 0x3B (ACCEL_XOUT_H)
   Wire.endTransmission(false);
   Wire.requestFrom(_imu_address, 2);
-  return ((float) (Wire.read() << 8 | Wire.read()));
+  return (Wire.read() << 8 | Wire.read());
 }
 
 float IMU::getRotationY() {
@@ -158,7 +205,7 @@ float IMU::getRotationY() {
   Wire.write(IMU_GYRO_Y_H);  // starting with register 0x3B (ACCEL_XOUT_H)
   Wire.endTransmission(false);
   Wire.requestFrom(_imu_address, 2);
-  return ((float) (Wire.read() << 8 | Wire.read()));
+  return (Wire.read() << 8 | Wire.read());
 }
 
 float IMU::getRotationZ() {
@@ -166,5 +213,5 @@ float IMU::getRotationZ() {
   Wire.write(IMU_GYRO_Z_H);  // starting with register 0x3B (ACCEL_XOUT_H)
   Wire.endTransmission(false);
   Wire.requestFrom(_imu_address, 2);
-  return ((float) (Wire.read() << 8 | Wire.read()));
+  return (Wire.read() << 8 | Wire.read());
 }

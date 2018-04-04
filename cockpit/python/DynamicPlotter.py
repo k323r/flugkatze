@@ -3,6 +3,8 @@ import pyqtgraph as pg
 import collections
 import numpy as np
 
+## add multiplot! 
+
 
 class DynamicPlotter():
 
@@ -27,18 +29,18 @@ class DynamicPlotter():
         self.timer.timeout.connect(self.updateplot)
         self.timer.start(self._interval)
 
-    def getdata(self):
-        # frequency = 0.5
-        # noise = random.normalvariate(0., 1.)
-        # new = 10.*math.sin(time.time()*frequency*2*math.pi) + noise
-        # get the current queue
-        return self._queue.get()
-
     def updateplot(self):
-        self.databuffer.append( self.getdata() )
+        self.databuffer.append( self._queue.get() )
         self.y[:] = self.databuffer
         self.curve.setData(self.x, self.y)
         self.app.processEvents()
 
     def run(self):
-        self.app.exec_()
+        try:
+            self.app.exec_()
+        except KeyboardInterrupt:
+            self.close()
+            return
+
+    def close(self):
+        self.app.closeAllWindows()

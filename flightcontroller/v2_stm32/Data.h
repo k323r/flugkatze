@@ -1,7 +1,5 @@
 #ifndef _DATA_H_
 #define _DATA_H_
-#endif
-
 #pragma once
 
 #include <Wire.h>
@@ -22,3 +20,5 @@ class Data {
       float pitch = 0;
       float yaw = 0;
 };
+
+#endif

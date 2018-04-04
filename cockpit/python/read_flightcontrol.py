@@ -33,7 +33,7 @@ log_name = './logs/telemetry.log'
 
 log = open(log_name, 'w+')
 
-log.writelines("# ax ay az T gx gy gz throttle roll pitch yaw\n")
+log.writelines("# ax ay az gx gy gz\n")
 
 if flugkatze_flightcontrol.isOpen():
     flugkatze_flightcontrol.flushInput()
@@ -45,20 +45,14 @@ struct Flight_data {
     float ay;
     float az;
     
-    float temp;
-    
     float gx;
     float gy;
     float gz;
     
-    int throttle;
-    int roll;
-    int pitch;
-    int yaw;
 } flight_data;
 '''
 
-FORMAT_STR = "fffffffhhhh"
+FORMAT_STR = "ffffff"
 
 size_struct = struct.calcsize(FORMAT_STR)
 print size_struct
@@ -72,12 +66,12 @@ while True:
         data = flugkatze_flightcontrol.read(size_struct)
         Byte = flugkatze_flightcontrol.read(1)
         if Byte == 'E':
-			msg = str(struct.unpack(FORMAT_STR, data)).replace("(", "").replace(")", "")
-			counter += 1
-			if counter > 50:
-				print (msg)
-				counter = 0
-			log.writelines(msg + "\n")
+            msg = str(struct.unpack(FORMAT_STR, data)).replace("(", "").replace(")", "")
+            counter += 1
+            if counter > 3:
+                print (msg)
+                counter = 0
+                log.writelines(msg + "\n")
 #    while True:
 #        msg = flugkatze_flightcontrol.readline()
 #        print "flugkatze_flightcontrol: " + msg

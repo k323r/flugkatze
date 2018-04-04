@@ -1,5 +1,5 @@
 #include <Wire.h> //Include the Wire.h library so we can communicate with the gyro.
-#include "I2Cdev.h"
+#include "../../lib/i2cdevlib/Arduino/I2Cdev.h"
 #include "MPU6050.h"
 #include "ExponentialFilter2.h"
 

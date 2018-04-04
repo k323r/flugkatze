@@ -1,0 +1,29 @@
+# flugkatze to do! #
+
+telemetry:
+    - multiplot
+    - parse args
+    - capture ctrl - um zombies zu vermeiden
+
+Microcontroller allgemein:
+    - I2C kapseln
+    - Datenklasse (klug) erweitern
+    - I2C auf 400kHz
+    - Volle Sensorfusion mittels Kalman! buja! 
+
+IMU:
+    - Kalmann-filter einbauen -> dafür muss aber die Grundlegende datenstruktur geänder werden
+
+Magnetfeld:
+    - in Betrieb nehmen
+    - Library bauen
+
+Drucksensor:
+    - In Betrieb nehmen
+    - Library bauen
+
+PID:
+    - Klasse reimplementieren
+
+
+

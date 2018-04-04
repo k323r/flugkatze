@@ -1,3 +1,6 @@
 [submodule "lib/Arduino-Makefile"]
 	path = lib/Arduino-Makefile
 	url = https://github.com/sudar/Arduino-Makefile.git
+[submodule "lib/KalmanFilter"]
+	path = lib/KalmanFilter
+	url = https://github.com/TKJElectronics/KalmanFilter.git

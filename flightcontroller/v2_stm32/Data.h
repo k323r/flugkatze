@@ -2,9 +2,16 @@
 #define _DATA_H_
 #endif
 
+#pragma once
+
+#include <Wire.h>
+
 class Data {
     public:
       Data();
+
+      void send();
+      
       float ax = 0;
       float ay = 0;
       float az = 0;
